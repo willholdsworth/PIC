@@ -125,20 +125,11 @@ canvas#vis { display: block; width: 100%; height: 100%; }
         </div>
       </div>
     </div>
-    <div class="row2">
-      <div class="field">
-        <label>Motor bottom to frame bottom (mm)</label>
-        <div class="input-reset-wrap">
-          <input type="number" id="motorOffset" value="35" min="35">
-          <button class="reset-side-btn" id="motorOffsetReset" title="Reset to default (35mm)">&#x21BA;</button>
-        </div>
-      </div>
-      <div class="field">
-        <label>Aperture to motor distance (mm)</label>
-        <div class="input-reset-wrap">
-          <input type="number" id="motorToApertureAdj" value="94" min="0" max="500">
-          <button class="reset-side-btn" id="motorToApertureAdjReset" title="Reset to default">&#x21BA;</button>
-        </div>
+    <div class="field">
+      <label>Motor bottom to frame bottom distance (mm)</label>
+      <div class="input-reset-wrap">
+        <input type="number" id="motorOffset" value="35" min="35">
+        <button class="reset-side-btn" id="motorOffsetReset" title="Reset to default (35mm)">&#x21BA;</button>
       </div>
     </div>
     <div class="section-label">TV / Display</div>
@@ -274,9 +265,6 @@ function buildPresets() {
       s('canvW', tvW > p.canvW ? tvW : p.canvW);
       s('canvH', p.canvH);
       forcePICH = p.name.startsWith('PIC-H');
-      const defMTA = forcePICH ? PICH_MOTOR_TO_APERTURE : PIC_MOTOR_TO_APERTURE;
-      document.getElementById('motorToApertureAdj').value = defMTA;
-      document.getElementById('motorToApertureAdjReset').classList.remove('visible');
       motorTubeWOverride = null; motorTubeHOverride = null;
       buildPresets(); syncMotorTubeFields(); updateInfo(); draw();
     };
@@ -313,17 +301,18 @@ function getCalc() {
   const motorW = (motorTubeWOverride !== null) ? motorTubeWOverride : defaultMotorW;
   const motorH = (motorTubeHOverride !== null) ? motorTubeHOverride : defaultMotorH;
   const motorOffset = parseFloat(document.getElementById('motorOffset').value) || 35;
-  const motorToApertureAdj = parseFloat(document.getElementById('motorToApertureAdj').value) || 0;
-  const defaultMotorToAperture = pich ? PICH_MOTOR_TO_APERTURE : PIC_MOTOR_TO_APERTURE;
-  const motorToApertureBase = motorToApertureAdj - (CANVAS_FRAME - 44);
+  const motorToApertureBase = (pich ? PICH_MOTOR_TO_APERTURE : PIC_MOTOR_TO_APERTURE) + (CANVAS_FRAME - 44);
   const outerCanvW = canvW + CANVAS_FRAME * 2;
   const outerCanvH = canvH + CANVAS_FRAME * 2;
   const coverageH = outerCanvH + travel;
   const needsCrossBrace = (canvH - frameH) > 50;
+  const canvOverflowBelowFrame = (!displayAbove && hookTop && canvH > frameH) ? (canvH - frameH) : 0;
+  const canvOverflowAboveFrame = (displayAbove && !hookTop && canvH > frameH) ? (canvH - frameH) : 0;
+  const actualMotorToAperture = motorToApertureBase + 5 + canvOverflowBelowFrame + canvOverflowAboveFrame;
   return {
     frameW, frameH, travel, canvW, canvH, tvW, tvH, apertureThick,
     outerCanvW, outerCanvH, coverageH, hookTop, displayAbove,
-    motorW, motorH, motorOffset, motorToApertureBase, pich,
+    motorW, motorH, motorOffset, motorToApertureBase, actualMotorToAperture, pich,
     needsCrossBrace
   };
 }
@@ -338,14 +327,11 @@ function updateInfo() {
   const canvTopRelFrame_mm = hookTop ? -bar_mm : c.frameH - c.outerCanvH + bar_mm;
   const canvBottomUp_mm = canvTopRelFrame_mm + c.outerCanvH;
   const pich = isPICH();
-  const motorH = pich ? PICH_MOTOR_H : PIC_MOTOR_H;
-  const motorToApertureBase = c.motorToApertureBase;
+  const motorH = c.motorH;
   const frameBottomUp_mm = c.frameH;
   const motorBottomFixed_mm = frameBottomUp_mm - c.motorOffset;
   const motorFixedTop_mm = motorBottomFixed_mm - motorH;
-  const extraBelow = (!c.displayAbove && hookTop && c.canvH > c.frameH) ? (c.canvH - c.frameH) : 0;
-  const extraAbove = (c.displayAbove && !hookTop && c.canvH > c.frameH) ? (c.canvH - c.frameH) : 0;
-  const actualMotorToAperture = motorToApertureBase + extraBelow + extraAbove;
+  const actualMotorToAperture = c.actualMotorToAperture;
   let apertureFixedTop_mm, requiredTravel, coverageOk;
   if (!c.displayAbove) {
     const minApertureFromMotor_mm = motorBottomFixed_mm + actualMotorToAperture;
@@ -417,10 +403,7 @@ function drawFrame(t) {
   const canvTopRelFrame_mm = canvOffY_mm;
   const motorH_mm = c.motorH;
   const motorW_mm = c.motorW;
-  const motorToApertureBase = c.motorToApertureBase;
-  const extraBelow = (!displayAbove && hookTop && c.canvH > c.frameH) ? (c.canvH - c.frameH) : 0;
-  const extraAbove = (displayAbove && !hookTop && c.canvH > c.frameH) ? (c.canvH - c.frameH) : 0;
-  const actualMotorToAperture_mm = motorToApertureBase + extraBelow + extraAbove;
+  const actualMotorToAperture_mm = c.actualMotorToAperture;
   const frameTopAbs_mm = 0;
   const apertureH_mm = c.tvH > 0 ? c.tvH + c.apertureThick * 2 : 60;
   const apertureW_mm = c.tvW > 0 ? c.tvW + c.apertureThick * 2 : 100;
@@ -625,85 +608,88 @@ document.getElementById('motorOffset').addEventListener('input', () => {
   updateInfo(); draw();
 });
 document.getElementById('motorOffsetReset').addEventListener('click', () => { document.getElementById('motorOffset').value = 35; document.getElementById('motorOffsetReset').classList.remove('visible'); updateInfo(); draw(); });
-document.getElementById('motorToApertureAdj').addEventListener('input', () => {
-  const defMTA = isPICH() ? PICH_MOTOR_TO_APERTURE : PIC_MOTOR_TO_APERTURE;
-  const val = parseFloat(document.getElementById('motorToApertureAdj').value) || 0;
-  document.getElementById('motorToApertureAdjReset').classList.toggle('visible', val !== defMTA);
-  updateInfo(); draw();
-});
-document.getElementById('motorToApertureAdjReset').addEventListener('click', () => {
-  const defMTA = isPICH() ? PICH_MOTOR_TO_APERTURE : PIC_MOTOR_TO_APERTURE;
-  document.getElementById('motorToApertureAdj').value = defMTA;
-  document.getElementById('motorToApertureAdjReset').classList.remove('visible');
-  updateInfo(); draw();
-});
 buildTVSelector(); buildPresets(); syncMotorTubeFields(); updateInfo(); draw();
 window.addEventListener('resize', draw);
-
 function exportMechanismProof() {
   const c = getCalc();
-  const PANEL_W = 820, GAP = 60, TOP_H = 160, BOTTOM_H = 80, TITLE_H = 36;
+  const GAP = 60, TOP_H = 160, BOTTOM_H = 80, TITLE_H = 36;
+  const LEFT_DIM = 110, RIGHT_DIM = 150, TOP_DIM = 60, BOT_DIM = 100;
+  const FRAME_DIM_PAD = 90;
+  const apertureH_mm = c.tvH > 0 ? c.tvH + c.apertureThick * 2 : 60;
+  const apertureW_mm = c.tvW > 0 ? c.tvW + c.apertureThick * 2 : 100;
+  const canvOffY_mm = c.hookTop ? -CANVAS_FRAME : c.frameH - c.outerCanvH + CANVAS_FRAME;
+  const motorH_mm = c.motorH, motorW_mm = c.motorW;
+  const actualMotorToAperture_mm = c.actualMotorToAperture;
+  const frameBottomUp_mm = c.frameH;
+  const motorBottomFixed_mm = frameBottomUp_mm - c.motorOffset;
+  const motorFixedTop_mm = motorBottomFixed_mm - motorH_mm;
+  const canvBottomUp_mm = canvOffY_mm + c.outerCanvH;
+  const apertureFixedTop_mm = !c.displayAbove
+    ? Math.max(motorBottomFixed_mm + actualMotorToAperture_mm, canvBottomUp_mm + 5)
+    : (motorFixedTop_mm - actualMotorToAperture_mm - apertureH_mm);
+  const tvTop_mm = apertureFixedTop_mm + c.apertureThick;
+  const canvTopUp_mm = canvOffY_mm;
+  function sceneBounds(tVal) {
+    const frameMovedTop = tVal * c.travel;
+    const canvBottom = tVal * c.travel + canvOffY_mm + c.outerCanvH;
+    const hp = Math.min(0, canvTopUp_mm, apertureFixedTop_mm);
+    const lp = Math.max(c.frameH, canvBottom, apertureFixedTop_mm + apertureH_mm, motorBottomFixed_mm);
+    return { hp, lp, totalH: lp - hp, maxW: Math.max(c.frameW, c.outerCanvW, apertureW_mm, motorW_mm) };
+  }
+  const bUp = sceneBounds(0), bDown = sceneBounds(1);
+  const sceneH_up = bUp.totalH, sceneH_down = bDown.totalH;
+  const sceneW_up = bUp.maxW, sceneW_down = bDown.maxW;
+  const sceneH_frame = c.outerCanvH, sceneW_frame = c.outerCanvW;
+  function panelScale(sH, sW) {
+    const availH = 1000, availW = 1000;
+    const usableH = availH - TOP_DIM - BOT_DIM;
+    const usableW = availW - LEFT_DIM - RIGHT_DIM;
+    return Math.min(usableH / sH, usableW / sW);
+  }
+  const scaleUp = panelScale(sceneH_up, sceneW_up);
+  const scaleDown = panelScale(sceneH_down, sceneW_down);
+  const scaleFrame = Math.min((1000 - FRAME_DIM_PAD * 2 - 60) / sceneH_frame, (1000 - FRAME_DIM_PAD * 2) / sceneW_frame);
+  const PANEL_W = 1000;
   const PROOF_W = PANEL_W * 3 + GAP * 2;
   const PROOF_H = TOP_H + TITLE_H + PANEL_W + BOTTOM_H;
-  const proof = document.createElement('canvas'); 
-  proof.width = PROOF_W; 
-  proof.height = PROOF_H;
-  const pc = proof.getContext('2d'); 
-  pc.fillStyle = '#ffffff'; 
-  pc.fillRect(0, 0, PROOF_W, PROOF_H);
+  const proof = document.createElement('canvas'); proof.width = PROOF_W; proof.height = PROOF_H;
+  const pc = proof.getContext('2d'); pc.fillStyle = '#ffffff'; pc.fillRect(0, 0, PROOF_W, PROOF_H);
   let proofTitle = activePreset !== 'CUSTOM' ? activePreset + ' GUIDE' : (isPICH() ? 'PIC-H' : 'PIC') + ' CUSTOM GUIDE';
-  pc.fillStyle = '#000000'; 
-  pc.font = 'bold 28px Arial'; 
-  pc.textAlign = 'center'; 
-  pc.fillText(proofTitle, PROOF_W / 2, 54);
-  pc.font = '16px Arial'; 
-  pc.fillStyle = '#555';
-  let presetLabel = 'Canvas ' + c.canvW + ' × ' + c.canvH + 'mm (outer ' + (c.canvW + CANVAS_FRAME * 2) + ' × ' + (c.canvH + CANVAS_FRAME * 2) + 'mm) | Frame ' + c.frameW + ' × ' + c.frameH + 'mm | Travel ' + c.travel + 'mm';
+  pc.fillStyle = '#000000'; pc.font = 'bold 28px Arial'; pc.textAlign = 'center'; pc.fillText(proofTitle, PROOF_W / 2, 54);
+  pc.font = '16px Arial'; pc.fillStyle = '#555';
+  let presetLabel = 'Canvas ' + c.canvW + ' × ' + c.canvH + 'mm (outer ' + c.outerCanvW + ' × ' + c.outerCanvH + 'mm) | Frame ' + c.frameW + ' × ' + c.frameH + 'mm | Travel ' + c.travel + 'mm';
   if (c.tvW > 0 && c.tvH > 0) presetLabel += ' | TV ' + c.tvW + ' × ' + c.tvH + 'mm | Aperture thickness ' + c.apertureThick + 'mm';
   presetLabel += ' | Canvas profile ' + CANVAS_FRAME + 'mm × ' + CANVAS_FRAME + 'mm';
   pc.fillText(presetLabel, PROOF_W / 2, 84);
-
   function renderPanel(tVal, mode) {
-    const offscreen = document.createElement('canvas'); 
-    offscreen.width = PANEL_W; 
-    offscreen.height = PANEL_W;
-    const ctx = offscreen.getContext('2d'); 
-    ctx.fillStyle = '#ffffff'; 
-    ctx.fillRect(0, 0, PANEL_W, PANEL_W);
+    const offscreen = document.createElement('canvas'); offscreen.width = PANEL_W; offscreen.height = PANEL_W;
+    const ctx = offscreen.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, PANEL_W, PANEL_W);
     const fStroke_mm = FRAME_STROKE, bar_mm = CANVAS_FRAME, hookTop = c.hookTop, displayAbove = c.displayAbove, t = tVal;
-    const canvOffY_mm = hookTop ? -bar_mm : c.frameH - c.outerCanvH + bar_mm;
-    const motorH_mm = c.motorH, motorW_mm = c.motorW, motorToApertureBase = c.motorToApertureBase;
-    const extraBelow = (!displayAbove && hookTop && c.canvH > c.frameH) ? (c.canvH - c.frameH) : 0;
-    const extraAbove = (displayAbove && !hookTop && c.canvH > c.frameH) ? (c.canvH - c.frameH) : 0;
-    const actualMotorToAperture_mm = motorToApertureBase + extraBelow + extraAbove;
-    const frameTopAbs_mm = 0, apertureH_mm = c.tvH > 0 ? c.tvH + c.apertureThick * 2 : 60, apertureW_mm = c.tvW > 0 ? c.tvW + c.apertureThick * 2 : 100;
-    const frameMovedTop_mm = frameTopAbs_mm + t * c.travel, canvMovedTop_mm = frameMovedTop_mm + canvOffY_mm, frameBottomUp_mm = frameTopAbs_mm + c.frameH;
-    const motorBottomFixed_mm = frameBottomUp_mm - c.motorOffset, motorFixedTop_mm = motorBottomFixed_mm - motorH_mm, canvBottomUp_mm = frameTopAbs_mm + canvOffY_mm + c.outerCanvH;
-    let apertureFixedTop_mm = !displayAbove ? Math.max(motorBottomFixed_mm + actualMotorToAperture_mm, canvBottomUp_mm + 5) : (motorFixedTop_mm - actualMotorToAperture_mm - apertureH_mm);
-    const tvTop_mm = apertureFixedTop_mm + c.apertureThick;
-    const canvTopUp_mm = 0 + canvOffY_mm;
-    const canvBottomDown_mm = c.travel + canvOffY_mm + c.outerCanvH;
-    const highestPoint_mm = Math.min(0, canvTopUp_mm, apertureFixedTop_mm);
-    const lowestPoint_mm = Math.max(c.frameH, canvBottomDown_mm, apertureFixedTop_mm + apertureH_mm, motorBottomFixed_mm);
-    const totalMechH_mm = lowestPoint_mm - highestPoint_mm, PAD_mm = 50, LEFT_DIM_SPACE = 80, RIGHT_DIM_SPACE = 130, TOP_PAD_EXTRA = 20, BOTTOM_LABEL_SPACE = 80;
-    const totalSceneH_mm = totalMechH_mm + PAD_mm * 2 + TOP_PAD_EXTRA + BOTTOM_LABEL_SPACE;
-    const maxW_mm = Math.max(c.frameW, c.outerCanvW, apertureW_mm, motorW_mm) + LEFT_DIM_SPACE + RIGHT_DIM_SPACE + PAD_mm * 2;
-    const SCALE = Math.min(PANEL_W / totalSceneH_mm, PANEL_W / maxW_mm);
-    const FRAME_DIM_PAD = 80, FRAME_TOP_PAD = 60, FRAME_BOT_PAD = 40;
-    const FRAME_SCALE = Math.min((PANEL_W - FRAME_TOP_PAD - FRAME_BOT_PAD - FRAME_DIM_PAD * 2) / c.outerCanvH, (PANEL_W - FRAME_DIM_PAD * 2) / c.outerCanvW);
-    function mm(v) { return mode === 'FRAME' ? v * FRAME_SCALE : v * SCALE; }
-    const cx = PANEL_W / 2, originY = (PANEL_W - (totalSceneH_mm * SCALE)) / 2 + SCALE * (PAD_mm + TOP_PAD_EXTRA) - SCALE * highestPoint_mm;
-    const frameCanvTop_px = FRAME_TOP_PAD + (PANEL_W - FRAME_TOP_PAD - FRAME_BOT_PAD - c.outerCanvH * FRAME_SCALE) / 2;
-    function yOf(y_mm) {
-      if (mode === 'FRAME') {
-        const canvOffY_frame = c.hookTop ? -CANVAS_FRAME : c.frameH - c.outerCanvH + CANVAS_FRAME;
-        return frameCanvTop_px + (y_mm - canvOffY_frame) * FRAME_SCALE;
-      }
-      return originY + y_mm * SCALE;
+    const SCALE = mode === 'FRAME' ? scaleFrame : (mode === 'UP' ? scaleUp : scaleDown);
+    function mm(v) { return v * SCALE; }
+    const bounds = mode === 'FRAME' ? null : sceneBounds(tVal);
+    const hp = bounds ? bounds.hp : 0;
+    const cx = PANEL_W / 2;
+    let originY;
+    if (mode === 'FRAME') {
+      originY = 60 + (PANEL_W - 60 - 40 - c.outerCanvH * SCALE) / 2 - canvOffY_mm * SCALE;
+    } else {
+      const usedH = bounds.totalH * SCALE;
+      originY = TOP_DIM + (PANEL_W - TOP_DIM - BOT_DIM - usedH) / 2 - hp * SCALE;
     }
-    const frameLeft = cx - mm(c.frameW / 2), frameTop = yOf(frameMovedTop_mm), fStroke = mm(fStroke_mm), canvLeft = cx - mm(c.outerCanvW / 2), canvTop = yOf(canvMovedTop_mm), outerCW = mm(c.outerCanvW), outerCH = mm(c.outerCanvH), bar = mm(bar_mm);
-    const motorLeft = cx - mm(motorW_mm / 2), motorTop = yOf(motorFixedTop_mm), motorW_px = mm(motorW_mm), motorH_px = mm(motorH_mm);
-    const apLeft = cx - mm(apertureW_mm / 2), apTop = yOf(apertureFixedTop_mm), apW = mm(apertureW_mm), apH = mm(apertureH_mm);
+    function yOf(y_mm) { return originY + mm(y_mm); }
+    const frameMovedTop_mm = t * c.travel;
+    const canvMovedTop_mm = frameMovedTop_mm + canvOffY_mm;
+    const frameLeft = cx - mm(c.frameW / 2), frameTop = yOf(frameMovedTop_mm);
+    const fStroke = mm(fStroke_mm);
+    const canvLeft = cx - mm(c.outerCanvW / 2), canvTop = yOf(canvMovedTop_mm);
+    const outerCW = mm(c.outerCanvW), outerCH = mm(c.outerCanvH), bar = mm(bar_mm);
+    const motorLeft = cx - mm(motorW_mm / 2), motorTop = yOf(motorFixedTop_mm);
+    const motorW_px = mm(motorW_mm), motorH_px = mm(motorH_mm);
+    const apLeft = cx - mm(apertureW_mm / 2), apTop = yOf(apertureFixedTop_mm);
+    const apW = mm(apertureW_mm), apH = mm(apertureH_mm);
+    const lp = bounds ? bounds.lp : 0;
+    const totalMechH_mm = bounds ? bounds.totalH : 0;
     if (mode !== 'FRAME') {
       if (c.tvW > 0 && c.tvH > 0) {
         ctx.fillStyle = '#ffffff'; ctx.fillRect(apLeft, apTop, apW, apH); ctx.save();
@@ -713,11 +699,12 @@ function exportMechanismProof() {
         ctx.save(); ctx.beginPath(); ctx.roundRect(cx - mm(c.tvW/2), yOf(tvTop_mm), mm(c.tvW), mm(c.tvH), 2); ctx.clip();
         ctx.fillStyle = '#111'; ctx.fillRect(cx - mm(c.tvW/2), yOf(tvTop_mm), mm(c.tvW), mm(c.tvH));
         ctx.strokeStyle = '#222'; ctx.lineWidth = 8; ctx.strokeRect(cx - mm(c.tvW/2)+4, yOf(tvTop_mm)+4, mm(c.tvW)-8, mm(c.tvH)-8);
-        ctx.restore(); ctx.font = "600 0.55rem 'Open Sans',sans-serif"; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.restore(); ctx.font = "600 11px Arial"; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText((c.tvW + 'mm (W) x ' + c.tvH + 'mm (H)').toUpperCase(), cx, yOf(tvTop_mm) + mm(c.tvH)/2 + 4);
       }
       ctx.save(); ctx.beginPath(); ctx.roundRect(motorLeft, motorTop, motorW_px, motorH_px, 2); ctx.fillStyle = '#2a2a2a'; ctx.fill(); ctx.strokeStyle = '#444'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
-      ctx.font = "600 0.48rem 'Open Sans',sans-serif"; ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(('CASSETTE CUTOUT ' + motorW_mm + ' x ' + motorH_mm + 'mm').toUpperCase(), cx, motorTop + motorH_px/2);
+      ctx.font = "600 10px Arial"; ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(('CASSETTE CUTOUT ' + motorW_mm + ' x ' + motorH_mm + 'mm').toUpperCase(), cx, motorTop + motorH_px/2);
       ctx.fillStyle = '#b0b0b0'; ctx.beginPath(); ctx.rect(frameLeft, frameTop, mm(c.frameW), mm(c.frameH)); ctx.rect(frameLeft+fStroke, frameTop+fStroke, mm(c.frameW)-fStroke*2, mm(c.frameH)-fStroke*2); ctx.fill('evenodd');
       ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5; ctx.strokeRect(frameLeft, frameTop, mm(c.frameW), mm(c.frameH));
     }
@@ -726,45 +713,42 @@ function exportMechanismProof() {
       let edgeY_mm = hookTop ? braceY_mm - (bar_mm / 2) : braceY_mm + (bar_mm / 2);
       ctx.save(); ctx.globalAlpha = 0.9; ctx.fillStyle = '#c8a050'; ctx.fillRect(canvLeft + bar, yOf(braceY_mm) - mm(bar_mm / 2), outerCW - bar * 2, mm(bar_mm)); ctx.strokeStyle = '#a07030'; ctx.lineWidth = 1; ctx.strokeRect(canvLeft + bar, yOf(braceY_mm) - mm(bar_mm / 2), outerCW - bar * 2, mm(bar_mm)); ctx.restore();
       if (mode === 'FRAME') {
-        let dist = c.frameH + 2;
-        dimArrow(ctx, canvLeft + outerCW - bar - 20, yOf(edgeY_mm), canvLeft + outerCW - bar - 20, yOf(hookTop ? frameMovedTop_mm : frameMovedTop_mm + c.frameH), (dist + 'mm').toUpperCase(), '#000', '#000', 'v');
+        dimArrow(ctx, canvLeft + outerCW - bar - 20, yOf(edgeY_mm), canvLeft + outerCW - bar - 20, yOf(hookTop ? frameMovedTop_mm : frameMovedTop_mm + c.frameH), ((c.frameH + 2) + 'mm').toUpperCase(), '#000', '#000', 'v');
       }
     }
     ctx.save(); ctx.globalAlpha = 0.9; ctx.fillStyle = '#c8a050'; ctx.fillRect(canvLeft, canvTop, outerCW, bar); ctx.fillRect(canvLeft, canvTop+outerCH-bar, outerCW, bar); ctx.fillRect(canvLeft, canvTop+bar, bar, outerCH-bar*2); ctx.fillRect(canvLeft+outerCW-bar, canvTop+bar, bar, outerCH-bar*2); ctx.strokeStyle='#a07030'; ctx.lineWidth=1; ctx.strokeRect(canvLeft, canvTop, outerCW, outerCH); ctx.restore();
     if (mode !== 'FRAME') {
-      drawBrokenDimH(ctx, frameLeft, frameTop + mm(c.frameH) + 12, frameLeft + mm(c.frameW), frameTop + mm(c.frameH) + 12, c.frameW + 'mm', '#777', 1.8);
-      drawBrokenDimV(ctx, frameLeft + mm(c.frameW) + 12, frameTop, frameLeft + mm(c.frameW) + 12, frameTop + mm(c.frameH), c.frameH + 'mm', '#777', 1.8);
+      drawBrokenDimH(ctx, frameLeft, frameTop + mm(c.frameH) + 14, frameLeft + mm(c.frameW), frameTop + mm(c.frameH) + 14, c.frameW + 'mm', '#777', 1.8);
+      drawBrokenDimV(ctx, frameLeft + mm(c.frameW) + 14, frameTop, frameLeft + mm(c.frameW) + 14, frameTop + mm(c.frameH), c.frameH + 'mm', '#777', 1.8);
     }
-    ctx.save(); ctx.font="700 14px Arial"; ctx.fillStyle='#000'; ctx.textAlign='center'; ctx.restore();
     if (mode === 'FRAME') {
-      const dimRightX2 = cx + Math.max(mm(c.frameW), outerCW) / 2 + 30;
-      dimArrow(ctx, canvLeft - 20, canvTop, canvLeft - 20, canvTop + outerCH, (c.outerCanvH + 'mm').toUpperCase(), '#000', '#000', 'v');
-      dimArrow(ctx, canvLeft, canvTop - 28, canvLeft + outerCW, canvTop - 28, (c.outerCanvW + 'mm').toUpperCase(), '#000', '#000', 'h');
-      dimArrow(ctx, canvLeft + bar + 30, canvTop + bar, canvLeft + bar + 30, canvTop + outerCH - bar, (c.canvH + 'mm').toUpperCase(), '#000', '#000', 'v');
-      dimArrow(ctx, canvLeft + bar, canvTop + bar + 36, canvLeft + outerCW - bar, canvTop + bar + 36, (c.canvW + 'mm').toUpperCase(), '#000', '#000', 'h');
-      dimArrow(ctx, canvLeft - 20, canvTop + outerCH - bar, canvLeft - 20, canvTop + outerCH, (bar_mm + 'mm').toUpperCase(), '#555', '#555', 'v');
+      dimArrow(ctx, canvLeft - 24, canvTop, canvLeft - 24, canvTop + outerCH, (c.outerCanvH + 'mm').toUpperCase(), '#000', '#000', 'v');
+      dimArrow(ctx, canvLeft, canvTop - 32, canvLeft + outerCW, canvTop - 32, (c.outerCanvW + 'mm').toUpperCase(), '#000', '#000', 'h');
+      dimArrow(ctx, canvLeft + bar + 34, canvTop + bar, canvLeft + bar + 34, canvTop + outerCH - bar, (c.canvH + 'mm').toUpperCase(), '#000', '#000', 'v');
+      dimArrow(ctx, canvLeft + bar, canvTop + bar + 40, canvLeft + outerCW - bar, canvTop + bar + 40, (c.canvW + 'mm').toUpperCase(), '#000', '#000', 'h');
+      dimArrow(ctx, canvLeft - 24, canvTop + outerCH - bar, canvLeft - 24, canvTop + outerCH, (bar_mm + 'mm').toUpperCase(), '#555', '#555', 'v');
     } else {
       const dimRightX = cx + Math.max(mm(c.frameW), outerCW, apW, mm(motorW_mm)) / 2 + 30;
-      dimArrow(ctx, dimRightX + 40, yOf(highestPoint_mm), dimRightX + 40, yOf(lowestPoint_mm), (Math.round(totalMechH_mm) + 'mm total').toUpperCase(), '#000', '#000', 'v');
-      if (t > 0.01) dimArrow(ctx, dimRightX + 80, yOf(0), dimRightX + 80, yOf(t * c.travel), ('travel ' + Math.round(t * c.travel) + 'mm').toUpperCase(), '#cc3333', '#cc3333', 'v');
+      dimArrow(ctx, dimRightX + 44, yOf(hp), dimRightX + 44, yOf(lp), (Math.round(totalMechH_mm) + 'mm total').toUpperCase(), '#000', '#000', 'v');
+      if (t > 0.01) dimArrow(ctx, dimRightX + 88, yOf(0), dimRightX + 88, yOf(t * c.travel), ('travel ' + Math.round(t * c.travel) + 'mm').toUpperCase(), '#cc3333', '#cc3333', 'v');
       if (c.tvW > 0 && c.tvH > 0) {
-        dimArrow(ctx, apLeft - 70, apTop, apLeft - 70, apTop + apH, (Math.round(apertureH_mm) + 'mm aperture').toUpperCase(), '#000', '#000', 'v');
-        dimArrow(ctx, apLeft, apTop + apH + 36, apLeft + apW, apTop + apH + 36, (Math.round(apertureW_mm) + 'mm aperture').toUpperCase(), '#000', '#000', 'h');
+        dimArrow(ctx, apLeft - 74, apTop, apLeft - 74, apTop + apH, (Math.round(apertureH_mm) + 'mm aperture').toUpperCase(), '#000', '#000', 'v');
+        dimArrow(ctx, apLeft, apTop + apH + 40, apLeft + apW, apTop + apH + 40, (Math.round(apertureW_mm) + 'mm aperture').toUpperCase(), '#000', '#000', 'h');
         if (!displayAbove) {
-          dimArrow(ctx, apLeft - 70, yOf(motorBottomFixed_mm), apLeft - 70, apTop, (Math.round(actualMotorToAperture_mm) + 'mm').toUpperCase(), '#000', '#000', 'v');
-          const cassetteToTop_mm = Math.round(motorFixedTop_mm - highestPoint_mm);
-          dimArrow(ctx, apLeft - 70, yOf(highestPoint_mm), apLeft - 70, yOf(motorFixedTop_mm), (cassetteToTop_mm + 'mm').toUpperCase(), '#000', '#000', 'v');
+          dimArrow(ctx, apLeft - 74, yOf(motorBottomFixed_mm), apLeft - 74, apTop, (Math.round(actualMotorToAperture_mm) + 'mm').toUpperCase(), '#000', '#000', 'v');
+          dimArrow(ctx, apLeft - 74, yOf(hp), apLeft - 74, yOf(motorFixedTop_mm), (Math.round(motorFixedTop_mm - hp) + 'mm').toUpperCase(), '#000', '#000', 'v');
         } else {
-          dimArrow(ctx, apLeft - 70, yOf(motorFixedTop_mm), apLeft - 70, yOf(apertureFixedTop_mm + apertureH_mm), (Math.round(actualMotorToAperture_mm) + 'mm').toUpperCase(), '#000', '#000', 'v');
-          const cassetteToBottom_mm = Math.round(lowestPoint_mm - motorBottomFixed_mm);
-          dimArrow(ctx, apLeft - 70, yOf(motorBottomFixed_mm), apLeft - 70, yOf(lowestPoint_mm), (cassetteToBottom_mm + 'mm').toUpperCase(), '#000', '#000', 'v');
+          dimArrow(ctx, apLeft - 74, yOf(motorFixedTop_mm), apLeft - 74, yOf(apertureFixedTop_mm + apertureH_mm), (Math.round(actualMotorToAperture_mm) + 'mm').toUpperCase(), '#000', '#000', 'v');
+          dimArrow(ctx, apLeft - 74, yOf(motorBottomFixed_mm), apLeft - 74, yOf(lp), (Math.round(lp - motorBottomFixed_mm) + 'mm').toUpperCase(), '#000', '#000', 'v');
         }
       }
-      if (t < 0.01 && Math.abs(yOf(motorBottomFixed_mm) - yOf(frameBottomUp_mm)) > 4) dimArrow(ctx, motorLeft - 20, yOf(frameBottomUp_mm), motorLeft - 20, yOf(motorBottomFixed_mm), (Math.round(c.motorOffset) + 'mm').toUpperCase(), '#555', '#555', 'v');
+      if (t < 0.01 && Math.abs(yOf(motorBottomFixed_mm) - yOf(frameBottomUp_mm)) > 4) dimArrow(ctx, motorLeft - 24, yOf(frameBottomUp_mm), motorLeft - 24, yOf(motorBottomFixed_mm), (Math.round(c.motorOffset) + 'mm').toUpperCase(), '#555', '#555', 'v');
+      dimArrow(ctx, canvLeft - 24, canvTop, canvLeft - 24, canvTop + outerCH, (c.outerCanvH + 'mm canvas').toUpperCase(), '#000', '#000', 'v');
+      dimArrow(ctx, canvLeft, canvTop - 28, canvLeft + outerCW, canvTop - 28, (c.outerCanvW + 'mm canvas').toUpperCase(), '#000', '#000', 'h');
     }
     return offscreen;
   }
-  const framePanel = renderPanel(0, 'FRAME'), upPanel = renderPanel(0, 'UP'), downPanel = renderPanel(1, 'DOWN');
+  const upPanel = renderPanel(0, 'UP'), downPanel = renderPanel(1, 'DOWN'), framePanel = renderPanel(0, 'FRAME');
   const startX = (PROOF_W - (PANEL_W * 3 + GAP * 2)) / 2;
   const panelY = TOP_H + TITLE_H;
   pc.font = 'bold 22px Arial'; pc.fillStyle = '#000'; pc.textAlign = 'center';
@@ -775,12 +759,7 @@ function exportMechanismProof() {
   pc.drawImage(downPanel, startX + PANEL_W + GAP, panelY, PANEL_W, PANEL_W);
   pc.drawImage(framePanel, startX + (PANEL_W + GAP) * 2, panelY, PANEL_W, PANEL_W);
   pc.font = '13px Arial'; pc.fillStyle = '#888'; pc.textAlign = 'center'; pc.fillText('PIC Mechanism Visualiser — Future Automation', PROOF_W / 2, panelY + PANEL_W + 50);
-  const a = document.createElement('a'); 
-  a.href = proof.toDataURL('image/jpeg', 0.93); 
-  a.download = proofTitle + '.jpg'; 
-  document.body.appendChild(a); 
-  a.click(); 
-  document.body.removeChild(a);
+  const a = document.createElement('a'); a.href = proof.toDataURL('image/jpeg', 0.93); a.download = proofTitle + '.jpg'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 document.getElementById('exportProofBtn').addEventListener('click', exportMechanismProof);
 </script>
