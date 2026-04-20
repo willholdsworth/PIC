@@ -20,24 +20,24 @@
 html, body { height: 100%; }
 body { background: var(--bg); color: var(--text); font-family: 'Open Sans', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 @media (max-width: 700px) { body { overflow: auto; } .layout { overflow: visible; } .sidebar { overflow-y: visible; } }
-header { padding: 16px 28px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 16px; background: white; flex-shrink: 0; }
-header h1 { font-family: 'Open Sans', sans-serif; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; color: var(--accent); }
-header span { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+header { padding: 9px 16px 8px; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 12px; background: white; flex-shrink: 0; }
+header h1 { font-family: 'Open Sans', sans-serif; font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; color: var(--accent); }
+header span { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
 .layout { display: flex; flex: 1; min-height: 0; overflow: hidden; }
-.sidebar { width: 300px; flex-shrink: 0; border-right: 1px solid var(--border); overflow-y: auto; padding: 16px; background: white; display: flex; flex-direction: column; gap: 0; }
-.section-label { font-size: 0.6rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-bottom: 10px; margin-top: 16px; }
+.sidebar { width: 270px; flex-shrink: 0; border-right: 1px solid var(--border); overflow-y: auto; padding: 10px 12px; background: white; display: flex; flex-direction: column; gap: 0; }
+.section-label { font-size: 0.55rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 3px; margin-bottom: 6px; margin-top: 11px; }
 .section-label:first-child { margin-top: 0; }
-.field { margin-bottom: 8px; }
-.field label { display: block; font-size: 0.65rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
-.field input[type="number"], .field select { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: 'Open Sans', sans-serif; font-size: 0.85rem; padding: 6px 9px; border-radius: 4px; transition: border-color 0.15s; }
+.field { margin-bottom: 5px; }
+.field label { display: block; font-size: 0.6rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.field input[type="number"], .field select { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: 'Open Sans', sans-serif; font-size: 0.78rem; padding: 4px 7px; border-radius: 4px; transition: border-color 0.15s; }
 .field input[type="number"]:focus, .field select:focus { outline: none; border-color: var(--accent); }
-.checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.72rem; color: var(--text); cursor: pointer; }
-.checkbox-row input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
-.preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 10px; }
-.preset-btn { background: var(--bg); border: 1px solid var(--border); color: var(--muted); font-family: 'Open Sans', sans-serif; font-size: 0.65rem; letter-spacing: 0.05em; padding: 5px 3px; border-radius: 4px; cursor: pointer; transition: all 0.15s; text-align: center; }
+.checkbox-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; font-size: 0.65rem; color: var(--text); cursor: pointer; }
+.checkbox-row input[type="checkbox"] { width: 13px; height: 13px; cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
+.preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 6px; }
+.preset-btn { background: var(--bg); border: 1px solid var(--border); color: var(--muted); font-family: 'Open Sans', sans-serif; font-size: 0.6rem; letter-spacing: 0.05em; padding: 4px 2px; border-radius: 4px; cursor: pointer; transition: all 0.15s; text-align: center; }
 .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
 .preset-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-.row2 { display: flex; gap: 7px; }
+.row2 { display: flex; gap: 5px; }
 .row2 .field { flex: 1; }
 .info-box { background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 10px; margin-top: 10px; font-size: 0.7rem; line-height: 1.9; }
 .info-row { display: flex; justify-content: space-between; }
@@ -57,8 +57,8 @@ header span { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; tex
 .view-btn.active { color: #fff; }
 .input-reset-wrap { display: flex; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--bg); transition: border-color 0.15s; }
 .input-reset-wrap:focus-within { border-color: var(--accent); }
-.input-reset-wrap input[type="number"] { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-family: 'Open Sans', sans-serif; font-size: 0.85rem; padding: 6px 9px; width: 0; }
-.reset-side-btn { display: none; align-items: center; justify-content: center; width: 30px; background: transparent; border: none; border-right: 1px solid var(--border); color: var(--muted); font-size: 1rem; cursor: pointer; transition: background 0.15s, color 0.15s; flex-shrink: 0; order: -1; }
+.input-reset-wrap input[type="number"] { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-family: 'Open Sans', sans-serif; font-size: 0.78rem; padding: 4px 7px; width: 0; }
+.reset-side-btn { display: none; align-items: center; justify-content: center; width: 26px; background: transparent; border: none; border-right: 1px solid var(--border); color: var(--muted); font-size: 0.9rem; cursor: pointer; transition: background 0.15s, color 0.15s; flex-shrink: 0; order: -1; }
 .reset-side-btn.visible { display: flex; }
 .reset-side-btn:hover { background: var(--accent); color: #fff; }
 .analysis-panel { position: absolute; top: 52px; left: 12px; z-index: 10; background: white; border: 1px solid var(--border); border-radius: 6px; padding: 10px; width: 230px; font-size: 0.7rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
@@ -132,6 +132,13 @@ canvas#vis { display: block; width: 100%; height: 100%; }
         <button class="reset-side-btn" id="motorOffsetReset" title="Reset to default (35mm)">&#x21BA;</button>
       </div>
     </div>
+    <div class="field">
+      <label>Cassette bottom to aperture top — offset (mm)</label>
+      <div class="input-reset-wrap">
+        <input type="number" id="motorToApertureOffset" value="0">
+        <button class="reset-side-btn" id="motorToApertureOffsetReset" title="Reset to 0mm">&#x21BA;</button>
+      </div>
+    </div>
     <div class="section-label">TV / Display</div>
     <div class="field">
       <label>Select by diagonal</label>
@@ -155,7 +162,7 @@ canvas#vis { display: block; width: 100%; height: 100%; }
       <input type="checkbox" id="displayAbove">
       Mount display above motor tube (aperture sits above motor, frame moves up to cover TV)
     </label>
-    <div style="margin-top:14px;">
+    <div style="margin-top:9px;">
       <button id="exportProofBtn" style="width:100%;background:#000;color:#fff;border:none;border-radius:4px;padding:9px 0;font-family:'Open Sans',sans-serif;font-size:0.75rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#333'" onmouseout="this.style.background='#000'">&#8681; Export Mechanism Proof</button>
     </div>
   </aside>
@@ -223,6 +230,7 @@ let activePreset = 'PIC1';
 let forcePICH = false;
 let motorTubeWOverride = null;
 let motorTubeHOverride = null;
+let motorToApertureOffsetOverride = null;
 function g(id) { return parseFloat(document.getElementById(id).value) || 0; }
 function s(id, v) { document.getElementById(id).value = v; }
 function togglePosition() {
@@ -265,7 +273,7 @@ function buildPresets() {
       s('canvW', tvW > p.canvW ? tvW : p.canvW);
       s('canvH', p.canvH);
       forcePICH = p.name.startsWith('PIC-H');
-      motorTubeWOverride = null; motorTubeHOverride = null;
+      motorTubeWOverride = null; motorTubeHOverride = null; motorToApertureOffsetOverride = null;
       buildPresets(); syncMotorTubeFields(); updateInfo(); draw();
     };
     grid.appendChild(btn);
@@ -302,17 +310,18 @@ function getCalc() {
   const motorH = (motorTubeHOverride !== null) ? motorTubeHOverride : defaultMotorH;
   const motorOffset = parseFloat(document.getElementById('motorOffset').value) || 35;
   const motorToApertureBase = (pich ? PICH_MOTOR_TO_APERTURE : PIC_MOTOR_TO_APERTURE) + (CANVAS_FRAME - 44);
+  const motorToApertureOffset = motorToApertureOffsetOverride !== null ? motorToApertureOffsetOverride : 0;
   const outerCanvW = canvW + CANVAS_FRAME * 2;
   const outerCanvH = canvH + CANVAS_FRAME * 2;
   const coverageH = outerCanvH + travel;
   const needsCrossBrace = (canvH - frameH) > 50;
   const canvOverflowBelowFrame = (!displayAbove && hookTop && canvH > frameH) ? (canvH - frameH) : 0;
   const canvOverflowAboveFrame = (displayAbove && !hookTop && canvH > frameH) ? (canvH - frameH) : 0;
-  const actualMotorToAperture = motorToApertureBase + 5 + canvOverflowBelowFrame + canvOverflowAboveFrame;
+  const actualMotorToAperture = motorToApertureBase + 5 + canvOverflowBelowFrame + canvOverflowAboveFrame + motorToApertureOffset;
   return {
     frameW, frameH, travel, canvW, canvH, tvW, tvH, apertureThick,
     outerCanvW, outerCanvH, coverageH, hookTop, displayAbove,
-    motorW, motorH, motorOffset, motorToApertureBase, actualMotorToAperture, pich,
+    motorW, motorH, motorOffset, motorToApertureBase, motorToApertureOffset, actualMotorToAperture, pich,
     needsCrossBrace
   };
 }
@@ -587,6 +596,9 @@ function syncMotorTubeFields() {
   const wBtn = document.getElementById('motorTubeWReset'), hBtn = document.getElementById('motorTubeHReset');
   if (motorTubeWOverride === null) { wInp.value = defW; wBtn.classList.remove('visible'); } else wBtn.classList.add('visible');
   if (motorTubeHOverride === null) { hInp.value = defH; hBtn.classList.remove('visible'); } else hBtn.classList.add('visible');
+  const offInp = document.getElementById('motorToApertureOffset');
+  const offBtn = document.getElementById('motorToApertureOffsetReset');
+  if (motorToApertureOffsetOverride === null) { offInp.value = 0; offBtn.classList.remove('visible'); } else offBtn.classList.add('visible');
 }
 document.getElementById('motorTubeW').addEventListener('input', () => {
   const pich = isPICH(), def = pich ? PICH_MOTOR_W : PIC_MOTOR_W, val = parseFloat(document.getElementById('motorTubeW').value);
@@ -608,6 +620,13 @@ document.getElementById('motorOffset').addEventListener('input', () => {
   updateInfo(); draw();
 });
 document.getElementById('motorOffsetReset').addEventListener('click', () => { document.getElementById('motorOffset').value = 35; document.getElementById('motorOffsetReset').classList.remove('visible'); updateInfo(); draw(); });
+document.getElementById('motorToApertureOffset').addEventListener('input', () => {
+  const val = parseFloat(document.getElementById('motorToApertureOffset').value);
+  motorToApertureOffsetOverride = (isNaN(val) || val === 0) ? null : val;
+  document.getElementById('motorToApertureOffsetReset').classList.toggle('visible', motorToApertureOffsetOverride !== null);
+  updateInfo(); draw();
+});
+document.getElementById('motorToApertureOffsetReset').addEventListener('click', () => { motorToApertureOffsetOverride = null; document.getElementById('motorToApertureOffset').value = 0; document.getElementById('motorToApertureOffsetReset').classList.remove('visible'); updateInfo(); draw(); });
 buildTVSelector(); buildPresets(); syncMotorTubeFields(); updateInfo(); draw();
 window.addEventListener('resize', draw);
 function exportMechanismProof() {
