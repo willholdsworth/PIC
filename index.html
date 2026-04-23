@@ -343,22 +343,27 @@ function updateInfo() {
   const motorBottomFixed_mm = frameBottomUp_mm - c.motorOffset;
   const motorFixedTop_mm = motorBottomFixed_mm - motorH;
   const actualMotorToAperture = c.actualMotorToAperture;
-  let apertureFixedTop_mm, requiredTravel, coverageOk;
+  const MIN_EDGE_COVERAGE = 25;
+  let apertureFixedTop_mm, requiredTravel, coverageOk, coverageTight, actualCoverage;
   if (!c.displayAbove) {
     const minApertureFromMotor_mm = motorBottomFixed_mm + actualMotorToAperture;
     const apertureFromCanvas_mm = canvBottomUp_mm + CANVAS_FRAME;
     apertureFixedTop_mm = Math.max(minApertureFromMotor_mm, apertureFromCanvas_mm);
     const apertureBottom_mm = apertureFixedTop_mm + apertureH;
     const distance = apertureBottom_mm - canvBottomUp_mm;
-    requiredTravel = distance + CANVAS_FRAME;
+    requiredTravel = distance + MIN_EDGE_COVERAGE;
+    actualCoverage = Math.round(c.travel - (distance));
     coverageOk = c.travel >= requiredTravel;
+    coverageTight = coverageOk && actualCoverage < CANVAS_FRAME;
   } else {
     const apertureBottom_above = motorFixedTop_mm - actualMotorToAperture;
     apertureFixedTop_mm = apertureBottom_above - apertureH;
     const canvTopRelFrame = hookTop ? -bar_mm : c.frameH - c.outerCanvH + bar_mm;
     const canvTopUp_mm = canvTopRelFrame;
-    requiredTravel = canvTopUp_mm - apertureFixedTop_mm + CANVAS_FRAME;
-    coverageOk = canvTopUp_mm <= apertureFixedTop_mm - CANVAS_FRAME;
+    requiredTravel = canvTopUp_mm - apertureFixedTop_mm + MIN_EDGE_COVERAGE;
+    actualCoverage = Math.round(apertureFixedTop_mm - canvTopUp_mm);
+    coverageOk = canvTopUp_mm <= apertureFixedTop_mm - MIN_EDGE_COVERAGE;
+    coverageTight = coverageOk && actualCoverage < CANVAS_FRAME;
   }
   const rows = [
     { label:'Canvas Width (inner)', val: c.canvW + 'mm' },
@@ -376,16 +381,16 @@ function updateInfo() {
   if (c.tvW > 0 && c.tvH > 0) {
     if (c.displayAbove) {
       if (coverageOk) {
-        alertHTML += `<div class="alert ok">Coverage: canvas top covers aperture top by ${CANVAS_FRAME}mm+ in the up position.</div>`;
+        alertHTML += `<div class="alert ${coverageTight ? 'warn' : 'ok'}">${coverageTight ? `Coverage: canvas top overlaps aperture top by only ${actualCoverage}mm — less than the recommended ${CANVAS_FRAME}mm frame width. Minimum is 25mm.` : `Coverage: canvas top covers aperture top by ${actualCoverage}mm in the up position.`}</div>`;
       } else {
         const shortfall = Math.round(requiredTravel);
-        alertHTML += `<div class="alert warn" style="background:rgba(204,51,51,0.15);border-color:rgba(204,51,51,0.6);">Coverage: canvas top does not reach aperture top in the up position — canvas needs to extend ${shortfall}mm higher.</div>`;
+        alertHTML += `<div class="alert warn" style="background:rgba(204,51,51,0.15);border-color:rgba(204,51,51,0.6);">Coverage: canvas top does not reach aperture top in the up position — canvas needs to extend ${shortfall}mm higher (minimum 25mm overlap required).</div>`;
       }
     } else {
       if (coverageOk) {
-        alertHTML += `<div class="alert ok">Coverage: travel (${c.travel}mm) is sufficient to cover the aperture by ${CANVAS_FRAME}mm+ (needs ${Math.round(requiredTravel)}mm).</div>`;
+        alertHTML += `<div class="alert ${coverageTight ? 'warn' : 'ok'}">${coverageTight ? `Coverage: travel (${c.travel}mm) gives only ${actualCoverage}mm overlap past aperture edge — less than the recommended ${CANVAS_FRAME}mm frame width. Minimum is 25mm.` : `Coverage: travel (${c.travel}mm) is sufficient — ${actualCoverage}mm past aperture edge.`}</div>`;
       } else {
-        alertHTML += `<div class="alert warn" style="background:rgba(204,51,51,0.15);border-color:rgba(204,51,51,0.6);">Coverage: travel (${c.travel}mm) is too short — needs ${Math.round(requiredTravel)}mm to cover the aperture.</div>`;
+        alertHTML += `<div class="alert warn" style="background:rgba(204,51,51,0.15);border-color:rgba(204,51,51,0.6);">Coverage: travel (${c.travel}mm) is too short — needs ${Math.round(requiredTravel)}mm to achieve minimum 25mm overlap past aperture edge.</div>`;
       }
     }
     if (c.canvW < apertureW) {
