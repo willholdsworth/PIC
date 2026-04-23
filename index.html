@@ -147,16 +147,16 @@ canvas#vis { display: block; width: 100%; height: 100%; }
     <div class="row2">
       <div class="field">
         <label>TV Width (mm)</label>
-        <input type="number" id="tvW" value="886" min="0">
+        <input type="number" id="tvW" value="708" min="0">
       </div>
       <div class="field">
         <label>TV Height (mm)</label>
-        <input type="number" id="tvH" value="498" min="0">
+        <input type="number" id="tvH" value="398" min="0">
       </div>
     </div>
     <div class="field">
       <label>Aperture Thickness (mm)</label>
-      <input type="number" id="apertureThick" value="10" min="0">
+      <input type="number" id="apertureThick" value="30" min="0">
     </div>
     <label class="checkbox-row">
       <input type="checkbox" id="displayAbove">
@@ -344,19 +344,19 @@ function updateInfo() {
   let apertureFixedTop_mm, requiredTravel, coverageOk;
   if (!c.displayAbove) {
     const minApertureFromMotor_mm = motorBottomFixed_mm + actualMotorToAperture;
-    const apertureFromCanvas_mm = canvBottomUp_mm + 5;
+    const apertureFromCanvas_mm = canvBottomUp_mm + CANVAS_FRAME;
     apertureFixedTop_mm = Math.max(minApertureFromMotor_mm, apertureFromCanvas_mm);
     const apertureBottom_mm = apertureFixedTop_mm + apertureH;
     const distance = apertureBottom_mm - canvBottomUp_mm;
-    requiredTravel = distance + 5;
+    requiredTravel = distance + CANVAS_FRAME;
     coverageOk = c.travel >= requiredTravel;
   } else {
     const apertureBottom_above = motorFixedTop_mm - actualMotorToAperture;
     apertureFixedTop_mm = apertureBottom_above - apertureH;
     const canvTopRelFrame = hookTop ? -bar_mm : c.frameH - c.outerCanvH + bar_mm;
     const canvTopUp_mm = canvTopRelFrame;
-    requiredTravel = canvTopUp_mm - apertureFixedTop_mm + 5;
-    coverageOk = canvTopUp_mm <= apertureFixedTop_mm - 5;
+    requiredTravel = canvTopUp_mm - apertureFixedTop_mm + CANVAS_FRAME;
+    coverageOk = canvTopUp_mm <= apertureFixedTop_mm - CANVAS_FRAME;
   }
   const rows = [
     { label:'Canvas Width (inner)', val: c.canvW + 'mm' },
@@ -374,14 +374,14 @@ function updateInfo() {
   if (c.tvW > 0 && c.tvH > 0) {
     if (c.displayAbove) {
       if (coverageOk) {
-        alertHTML += `<div class="alert ok">Coverage: canvas top covers aperture top by 5mm+ in the up position.</div>`;
+        alertHTML += `<div class="alert ok">Coverage: canvas top covers aperture top by ${CANVAS_FRAME}mm+ in the up position.</div>`;
       } else {
         const shortfall = Math.round(requiredTravel);
         alertHTML += `<div class="alert warn" style="background:rgba(204,51,51,0.15);border-color:rgba(204,51,51,0.6);">Coverage: canvas top does not reach aperture top in the up position — canvas needs to extend ${shortfall}mm higher.</div>`;
       }
     } else {
       if (coverageOk) {
-        alertHTML += `<div class="alert ok">Coverage: travel (${c.travel}mm) is sufficient to cover the aperture by 5mm+ (needs ${Math.round(requiredTravel)}mm).</div>`;
+        alertHTML += `<div class="alert ok">Coverage: travel (${c.travel}mm) is sufficient to cover the aperture by ${CANVAS_FRAME}mm+ (needs ${Math.round(requiredTravel)}mm).</div>`;
       } else {
         alertHTML += `<div class="alert warn" style="background:rgba(204,51,51,0.15);border-color:rgba(204,51,51,0.6);">Coverage: travel (${c.travel}mm) is too short — needs ${Math.round(requiredTravel)}mm to cover the aperture.</div>`;
       }
@@ -426,7 +426,7 @@ function drawFrame(t) {
   let apertureFixedTop_mm, tvTop_mm;
   if (!displayAbove) {
     const minApertureFromMotor = motorBottomFixed_mm + actualMotorToAperture_mm;
-    const apertureFromCanvas = canvBottomUp_mm + 5;
+    const apertureFromCanvas = canvBottomUp_mm + CANVAS_FRAME;
     apertureFixedTop_mm = Math.max(minApertureFromMotor, apertureFromCanvas);
   } else {
     const apertureBottom_above = motorFixedTop_mm - actualMotorToAperture_mm;
@@ -445,11 +445,12 @@ function drawFrame(t) {
   const RIGHT_DIM_SPACE = 140;
   const TOP_PAD_EXTRA = 40;
   const BOTTOM_LABEL_SPACE = 50;
+  const LABEL_PX_GUARD = 50;
   const totalSceneH_mm = totalMechH_mm + PAD_mm * 2 + TOP_PAD_EXTRA + BOTTOM_LABEL_SPACE;
   const maxW_mm = Math.max(c.frameW, c.outerCanvW, apertureW_mm, motorW_mm) + LEFT_DIM_SPACE + RIGHT_DIM_SPACE + PAD_mm * 2;
   const containerW = container.clientWidth || 600;
   const containerH = container.clientHeight || 500;
-  const scaleByH = (containerH - 4) / totalSceneH_mm;
+  const scaleByH = (containerH - 4 - LABEL_PX_GUARD * 2) / totalSceneH_mm;
   const scaleByW = (containerW - 4) / maxW_mm;
   const SCALE = Math.min(scaleByH, scaleByW);
   cnv.width = containerW * DPR;
@@ -464,7 +465,7 @@ function drawFrame(t) {
   function mm(v) { return v * SCALE; }
   const cx = containerW / 2;
   const sceneH_px = totalSceneH_mm * SCALE;
-  const originY = (containerH - sceneH_px) / 2 + mm(PAD_mm + TOP_PAD_EXTRA) - mm(highestPoint_mm);
+  const originY = (containerH - sceneH_px) / 2 + mm(PAD_mm + TOP_PAD_EXTRA) - mm(highestPoint_mm) + LABEL_PX_GUARD;
   function yOf(y_mm) { return originY + mm(y_mm); }
   function xLeft(w_mm) { return cx - mm(w_mm / 2); }
   const frameLeft = xLeft(c.frameW), frameTop = yOf(frameMovedTop_mm), frameW_px = mm(c.frameW), frameH_px = mm(c.frameH), fStroke = mm(fStroke_mm);
@@ -644,7 +645,7 @@ function exportMechanismProof() {
   const motorFixedTop_mm = motorBottomFixed_mm - motorH_mm;
   const canvBottomUp_mm = canvOffY_mm + c.outerCanvH;
   const apertureFixedTop_mm = !c.displayAbove
-    ? Math.max(motorBottomFixed_mm + actualMotorToAperture_mm, canvBottomUp_mm + 5)
+    ? Math.max(motorBottomFixed_mm + actualMotorToAperture_mm, canvBottomUp_mm + CANVAS_FRAME)
     : (motorFixedTop_mm - actualMotorToAperture_mm - apertureH_mm);
   const tvTop_mm = apertureFixedTop_mm + c.apertureThick;
   const canvTopUp_mm = canvOffY_mm;
