@@ -63,6 +63,7 @@ header span { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.1em; te
 .reset-side-btn:hover { background: var(--accent); color: #fff; }
 .analysis-panel { position: absolute; top: 52px; left: 12px; z-index: 10; background: white; border: 1px solid var(--border); border-radius: 6px; padding: 10px; width: 230px; font-size: 0.7rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
 canvas#vis { display: block; width: 100%; height: 100%; }
+.hidden { display: none !important; }
 </style>
 </head>
 <body>
@@ -104,41 +105,58 @@ canvas#vis { display: block; width: 100%; height: 100%; }
       <label>Canvas Frame Thickness (mm)</label>
       <input type="number" id="canvFrame" value="44" min="1" max="200">
     </div>
-    <label class="checkbox-row">
+    <label class="checkbox-row" id="hookTopRow">
       <input type="checkbox" id="hookTop" checked>
-      Hook canvas to inside top edge of moving frame
+      <span id="hookTopLabel">Hook canvas to inside top edge of moving frame</span>
     </label>
-    <div class="section-label">Motor Tube</div>
-    <div class="row2">
-      <div class="field">
-        <label>Width (mm)</label>
-        <div class="input-reset-wrap">
-          <input type="number" id="motorTubeW" min="10">
-          <button class="reset-side-btn" id="motorTubeWReset" title="Reset to default">&#x21BA;</button>
+
+    <!-- PIC/PICH only fields -->
+    <div id="picOnlyFields">
+      <div class="section-label">Motor Tube</div>
+      <div class="row2">
+        <div class="field">
+          <label>Width (mm)</label>
+          <div class="input-reset-wrap">
+            <input type="number" id="motorTubeW" min="10">
+            <button class="reset-side-btn" id="motorTubeWReset" title="Reset to default">&#x21BA;</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Height (mm)</label>
+          <div class="input-reset-wrap">
+            <input type="number" id="motorTubeH" min="1">
+            <button class="reset-side-btn" id="motorTubeHReset" title="Reset to default">&#x21BA;</button>
+          </div>
         </div>
       </div>
       <div class="field">
-        <label>Height (mm)</label>
+        <label>Motor bottom to frame bottom distance (mm)</label>
         <div class="input-reset-wrap">
-          <input type="number" id="motorTubeH" min="1">
-          <button class="reset-side-btn" id="motorTubeHReset" title="Reset to default">&#x21BA;</button>
+          <input type="number" id="motorOffset" value="35" min="35">
+          <button class="reset-side-btn" id="motorOffsetReset" title="Reset to default (35mm)">&#x21BA;</button>
+        </div>
+      </div>
+      <div class="field">
+        <label id="plateToApertureLabel">Cassette bottom to aperture top — offset (mm)</label>
+        <div class="input-reset-wrap">
+          <input type="number" id="motorToApertureOffset" value="0">
+          <button class="reset-side-btn" id="motorToApertureOffsetReset" title="Reset to 0mm">&#x21BA;</button>
         </div>
       </div>
     </div>
-    <div class="field">
-      <label>Motor bottom to frame bottom distance (mm)</label>
-      <div class="input-reset-wrap">
-        <input type="number" id="motorOffset" value="35" min="35">
-        <button class="reset-side-btn" id="motorOffsetReset" title="Reset to default (35mm)">&#x21BA;</button>
+
+    <!-- PIC-SIDE only fields -->
+    <div id="sideOnlyFields" class="hidden">
+      <div class="section-label">Wall Plate</div>
+      <div class="field">
+        <label>Plate to aperture edge — offset (mm)</label>
+        <div class="input-reset-wrap">
+          <input type="number" id="sideApertureOffset" value="0">
+          <button class="reset-side-btn" id="sideApertureOffsetReset" title="Reset to 0mm">&#x21BA;</button>
+        </div>
       </div>
     </div>
-    <div class="field">
-      <label>Cassette bottom to aperture top — offset (mm)</label>
-      <div class="input-reset-wrap">
-        <input type="number" id="motorToApertureOffset" value="0">
-        <button class="reset-side-btn" id="motorToApertureOffsetReset" title="Reset to 0mm">&#x21BA;</button>
-      </div>
-    </div>
+
     <div class="section-label">TV / Display</div>
     <div class="field">
       <label>Select by diagonal</label>
@@ -160,7 +178,7 @@ canvas#vis { display: block; width: 100%; height: 100%; }
     </div>
     <label class="checkbox-row">
       <input type="checkbox" id="displayAbove">
-      Mount display above motor tube (aperture sits above motor, frame moves up to cover TV)
+      <span id="displayAboveLabel">Mount display above motor tube (aperture sits above motor, frame moves up to cover TV)</span>
     </label>
     <div style="margin-top:9px;">
       <button id="exportProofBtn" style="width:100%;background:#000;color:#fff;border:none;border-radius:4px;padding:9px 0;font-family:'Open Sans',sans-serif;font-size:0.75rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#333'" onmouseout="this.style.background='#000'">&#8681; Export Mechanism Proof</button>
@@ -191,14 +209,20 @@ const PIC_MOTOR_TO_APERTURE = 94;
 const PICH_MOTOR_W = 1000;
 const PICH_MOTOR_H = 134;
 const PICH_MOTOR_TO_APERTURE = 79;
+const PICSIDE_PLATE_W = 280;
+const PICSIDE_PLATE_H = 650;
+const PICSIDE_PLATE_TO_APERTURE = 44;
+
 const PRESETS = [
-  { name:'PIC1', frameW:758, frameH:718, travel:560, canvW:850, canvH:720 },
-  { name:'PIC2', frameW:758, frameH:868, travel:710, canvW:850, canvH:870 },
-  { name:'PIC3', frameW:758, frameH:1018, travel:860, canvW:850, canvH:1020 },
-  { name:'PIC-H1', frameW:1012, frameH:910, travel:710, canvW:1055, canvH:910 },
-  { name:'PIC-H2', frameW:1012, frameH:1060, travel:860, canvW:1055, canvH:1060 },
-  { name:'PIC-H3', frameW:1012, frameH:1210, travel:1010, canvW:1055, canvH:1210 },
+  { name:'PIC1',     frameW:758,  frameH:718,  travel:560,  canvW:850,  canvH:720,  type:'pic' },
+  { name:'PIC2',     frameW:758,  frameH:868,  travel:710,  canvW:850,  canvH:870,  type:'pic' },
+  { name:'PIC3',     frameW:758,  frameH:1018, travel:860,  canvW:850,  canvH:1020, type:'pic' },
+  { name:'PIC-H1',   frameW:1012, frameH:910,  travel:710,  canvW:1055, canvH:910,  type:'pich' },
+  { name:'PIC-H2',   frameW:1012, frameH:1060, travel:860,  canvW:1055, canvH:1060, type:'pich' },
+  { name:'PIC-H3',   frameW:1012, frameH:1210, travel:1010, canvW:1055, canvH:1210, type:'pich' },
+  { name:'PIC-SIDE1',frameW:1468, frameH:700,  travel:1184, canvW:1468, canvH:700,  type:'side' },
 ];
+
 function buildTVSelector() {
   const sel = document.getElementById('tvDiag');
   sel.innerHTML = '<option value="0">Custom</option>';
@@ -218,21 +242,49 @@ function buildTVSelector() {
     if (opt.dataset.w) {
       document.getElementById('tvW').value = opt.dataset.w;
       document.getElementById('tvH').value = opt.dataset.h;
-      applyTVWidthToCanvas();
+      applyTVDimToCanvas();
       updateInfo(); draw();
     }
   });
 }
+
 let animT = 0;
 let animTarget = 0;
 let animRAF = null;
 let activePreset = 'PIC1';
 let forcePICH = false;
+let forceSIDE = false;
 let motorTubeWOverride = null;
 let motorTubeHOverride = null;
 let motorToApertureOffsetOverride = null;
+let sideApertureOffsetOverride = null;
+
 function g(id) { return parseFloat(document.getElementById(id).value) || 0; }
 function s(id, v) { document.getElementById(id).value = v; }
+
+function isSIDE() {
+  return forceSIDE || activePreset === 'PIC-SIDE1';
+}
+function isPICH() {
+  return !isSIDE() && (forcePICH || activePreset === 'PIC-H1' || activePreset === 'PIC-H2' || activePreset === 'PIC-H3');
+}
+
+function updateSidebarForMode() {
+  const side = isSIDE();
+  document.getElementById('picOnlyFields').classList.toggle('hidden', side);
+  document.getElementById('sideOnlyFields').classList.toggle('hidden', !side);
+  document.getElementById('hookTopLabel').textContent = side
+    ? 'Hook canvas to inside top edge of moving frame'
+    : 'Hook canvas to inside top edge of moving frame';
+  document.getElementById('displayAboveLabel').textContent = side
+    ? 'Mount display to the left of wall plate (canvas moves left to cover TV)'
+    : 'Mount display above motor tube (aperture sits above motor, frame moves up to cover TV)';
+  const btnUp = document.getElementById('btnUp');
+  const btnDown = document.getElementById('btnDown');
+  btnUp.textContent = side ? 'LEFT' : 'UP';
+  btnDown.textContent = side ? 'RIGHT' : 'DOWN';
+}
+
 function togglePosition() {
   const newTarget = animTarget === 0 ? 1 : 0;
   setPosition(newTarget);
@@ -259,6 +311,7 @@ function setPosition(target) {
   }
   animRAF = requestAnimationFrame(step);
 }
+
 function buildPresets() {
   const grid = document.getElementById('presetGrid');
   grid.innerHTML = '';
@@ -274,25 +327,15 @@ function buildPresets() {
       const apertureW = tvW + apertureThick * 2;
       s('canvW', apertureW > p.canvW ? apertureW : p.canvW);
       s('canvH', p.canvH);
-      forcePICH = p.name.startsWith('PIC-H');
-      motorTubeWOverride = null; motorTubeHOverride = null; motorToApertureOffsetOverride = null;
-      buildPresets(); syncMotorTubeFields(); updateInfo(); draw();
+      forcePICH = p.type === 'pich';
+      forceSIDE = p.type === 'side';
+      motorTubeWOverride = null; motorTubeHOverride = null; motorToApertureOffsetOverride = null; sideApertureOffsetOverride = null;
+      buildPresets(); syncMotorTubeFields(); updateSidebarForMode(); updateInfo(); draw();
     };
     grid.appendChild(btn);
   });
-  const custom = document.createElement('button');
-  custom.className = 'preset-btn' + (activePreset === 'CUSTOM' ? ' active' : '');
-  custom.textContent = 'CUSTOM';
-  custom.onclick = () => { 
-    activePreset = 'CUSTOM'; 
-    forcePICH = isPICH();
-    buildPresets(); 
-  };
-  grid.appendChild(custom);
 }
-function isPICH() {
-  return forcePICH || activePreset === 'PIC-H1' || activePreset === 'PIC-H2' || activePreset === 'PIC-H3';
-}
+
 function getCalc() {
   CANVAS_FRAME = parseFloat(document.getElementById('canvFrame').value) || 44;
   const frameW = g('frameW');
@@ -305,7 +348,28 @@ function getCalc() {
   const apertureThick = Math.max(0, g('apertureThick') || 5);
   const hookTop = document.getElementById('hookTop').checked;
   const displayAbove = document.getElementById('displayAbove').checked;
+  const side = isSIDE();
   const pich = isPICH();
+
+  if (side) {
+    const outerCanvW = canvW + CANVAS_FRAME * 2;
+    const outerCanvH = canvH + CANVAS_FRAME * 2;
+    const plateToApertureBase = Math.max(25, CANVAS_FRAME);
+    const plateToApertureOffset = sideApertureOffsetOverride !== null ? sideApertureOffsetOverride : 0;
+    const plateToAperture = plateToApertureBase + plateToApertureOffset;
+    const canvExtraH = canvH - frameH;
+    const needsHorizBrace = canvExtraH > 50;
+    const canvExtraW = canvW - frameW;
+    const needsVertBrace = canvExtraW > 200;
+    return {
+      frameW, frameH, travel, canvW, canvH, tvW, tvH, apertureThick,
+      outerCanvW, outerCanvH, hookTop, displayAbove, side: true, pich: false,
+      plateToAperture, plateToApertureOffset,
+      needsHorizBrace, needsVertBrace, canvExtraH, canvExtraW,
+      motorW: 0, motorH: 0, motorOffset: 0, actualMotorToAperture: 0
+    };
+  }
+
   const defaultMotorW = pich ? PICH_MOTOR_W : PIC_MOTOR_W;
   const defaultMotorH = pich ? PICH_MOTOR_H : PIC_MOTOR_H;
   const motorW = (motorTubeWOverride !== null) ? motorTubeWOverride : defaultMotorW;
@@ -322,90 +386,149 @@ function getCalc() {
   const actualMotorToAperture = motorToApertureBase + 5 + canvOverflowBelowFrame + canvOverflowAboveFrame + motorToApertureOffset;
   return {
     frameW, frameH, travel, canvW, canvH, tvW, tvH, apertureThick,
-    outerCanvW, outerCanvH, coverageH, hookTop, displayAbove,
-    motorW, motorH, motorOffset, motorToApertureBase, motorToApertureOffset, actualMotorToAperture, pich,
-    needsCrossBrace
+    outerCanvW, outerCanvH, coverageH, hookTop, displayAbove, side: false, pich,
+    motorW, motorH, motorOffset, motorToApertureBase, motorToApertureOffset, actualMotorToAperture,
+    needsCrossBrace, needsHorizBrace: needsCrossBrace, needsVertBrace: false
   };
 }
+
 function updateInfo() {
   const c = getCalc();
   const box = document.getElementById('infoBox');
   const alerts = document.getElementById('alerts');
   const apertureW = c.tvW > 0 ? c.tvW + c.apertureThick * 2 : 0;
   const apertureH = c.tvH > 0 ? c.tvH + c.apertureThick * 2 : 0;
-  const hookTop = c.hookTop;
-  const bar_mm = CANVAS_FRAME;
-  const canvTopRelFrame_mm = hookTop ? -bar_mm : c.frameH - c.outerCanvH + bar_mm;
-  const canvBottomUp_mm = canvTopRelFrame_mm + c.outerCanvH;
-  const pich = isPICH();
-  const motorH = c.motorH;
-  const frameBottomUp_mm = c.frameH;
-  const motorBottomFixed_mm = frameBottomUp_mm - c.motorOffset;
-  const motorFixedTop_mm = motorBottomFixed_mm - motorH;
-  const actualMotorToAperture = c.actualMotorToAperture;
   const MIN_EDGE_COVERAGE = 25;
-  let apertureFixedTop_mm, requiredTravel, coverageOk, coverageTight, actualCoverage;
-  if (!c.displayAbove) {
-    const minApertureFromMotor_mm = motorBottomFixed_mm + actualMotorToAperture;
-    const apertureFromCanvas_mm = canvBottomUp_mm + CANVAS_FRAME;
-    apertureFixedTop_mm = Math.max(minApertureFromMotor_mm, apertureFromCanvas_mm);
-    const apertureBottom_mm = apertureFixedTop_mm + apertureH;
-    const distance = apertureBottom_mm - canvBottomUp_mm;
-    requiredTravel = distance + MIN_EDGE_COVERAGE;
-    actualCoverage = Math.round(c.travel - (distance));
-    coverageOk = c.travel >= requiredTravel;
-    coverageTight = coverageOk && actualCoverage < CANVAS_FRAME;
+  const MIN_SIDE_COVERAGE = 44;
+
+  let alertHTML = '';
+  let rows = [];
+
+  if (c.side) {
+    const bar = CANVAS_FRAME;
+    const MIN_HORIZ_COVERAGE = bar;
+    const MIN_HORIZ_COVERAGE_WARN = MIN_SIDE_COVERAGE;
+
+    const actualCoverage = Math.round(c.travel + bar - c.plateToAperture - apertureW);
+    const coverageOk = actualCoverage >= MIN_HORIZ_COVERAGE_WARN;
+    const coverageTight = coverageOk && actualCoverage < MIN_HORIZ_COVERAGE;
+
+    const topOverlap = Math.round((c.outerCanvH - apertureH) / 2);
+    const topCoverageOk = topOverlap >= MIN_EDGE_COVERAGE;
+    const topCoverageTight = topCoverageOk && topOverlap < bar;
+
+    rows = [
+      { label:'Canvas Width (inner)', val: c.canvW + 'mm' },
+      { label:'Canvas Height (inner)', val: c.canvH + 'mm' },
+      { label:'Aperture Width', val: apertureW ? apertureW + 'mm' : '-' },
+      { label:'Aperture Height', val: apertureH ? apertureH + 'mm' : '-' },
+      { label:'Plate to Aperture', val: Math.round(c.plateToAperture) + 'mm' },
+      { label:'Travel', val: c.travel + 'mm' },
+      { label:'Total Coverage Width', val: (c.outerCanvW + c.travel) + 'mm' },
+    ];
+
+    if (c.tvW > 0 && c.tvH > 0) {
+      if (coverageOk) {
+        alertHTML += `<div class="alert ${coverageTight ? 'warn' : 'ok'}">${coverageTight ? `L/R Coverage: only ${actualCoverage}mm past aperture edge — less than the recommended ${bar}mm.` : `L/R Coverage: travel sufficient — ${actualCoverage}mm past aperture edge.`}</div>`;
+      } else {
+        alertHTML += `<div class="alert warn" style="background:rgba(204,51,51,0.15);border-color:rgba(204,51,51,0.6);">L/R Coverage: insufficient — only ${actualCoverage}mm past aperture edge. Minimum is ${MIN_HORIZ_COVERAGE_WARN}mm, recommended ${bar}mm.</div>`;
+      }
+      if (apertureH > 0) {
+        if (!topCoverageOk) {
+          alertHTML += `<div class="alert warn" style="background:rgba(204,51,51,0.15);border-color:rgba(204,51,51,0.6);">Top/Bottom: canvas height (${c.canvH}mm) is too short — aperture (${apertureH}mm) needs at least ${Math.round(apertureH + MIN_EDGE_COVERAGE * 2)}mm canvas height for ${MIN_EDGE_COVERAGE}mm coverage each edge.</div>`;
+        } else if (topCoverageTight) {
+          alertHTML += `<div class="alert warn">Top/Bottom: only ${topOverlap}mm coverage each edge — less than recommended ${bar}mm. Minimum is ${MIN_EDGE_COVERAGE}mm.</div>`;
+        } else {
+          alertHTML += `<div class="alert ok">Top/Bottom: ${topOverlap}mm coverage each edge.</div>`;
+        }
+      }
+      if (c.canvH < apertureH) {
+        alertHTML += `<div class="alert warn" style="background:rgba(204,51,51,0.15);border-color:rgba(204,51,51,0.6);">Height: aperture (${apertureH}mm) is taller than canvas inner height (${c.canvH}mm).</div>`;
+      }
+    }
+    if (c.needsHorizBrace) alertHTML += `<div class="alert ok">Horizontal cross brace added (canvas >50mm taller than moving frame).</div>`;
+    if (c.needsVertBrace) alertHTML += `<div class="alert ok">Vertical cross brace added (canvas >200mm wider than moving frame).</div>`;
+
   } else {
-    const apertureBottom_above = motorFixedTop_mm - actualMotorToAperture;
-    apertureFixedTop_mm = apertureBottom_above - apertureH;
-    const canvTopRelFrame = hookTop ? -bar_mm : c.frameH - c.outerCanvH + bar_mm;
-    const canvTopUp_mm = canvTopRelFrame;
-    requiredTravel = canvTopUp_mm - apertureFixedTop_mm + MIN_EDGE_COVERAGE;
-    actualCoverage = Math.round(apertureFixedTop_mm - canvTopUp_mm);
-    coverageOk = canvTopUp_mm <= apertureFixedTop_mm - MIN_EDGE_COVERAGE;
-    coverageTight = coverageOk && actualCoverage < CANVAS_FRAME;
+    const hookTop = c.hookTop;
+    const bar_mm = CANVAS_FRAME;
+    const canvTopRelFrame_mm = hookTop ? -bar_mm : c.frameH - c.outerCanvH + bar_mm;
+    const canvBottomUp_mm = canvTopRelFrame_mm + c.outerCanvH;
+    const motorH = c.motorH;
+    const frameBottomUp_mm = c.frameH;
+    const motorBottomFixed_mm = frameBottomUp_mm - c.motorOffset;
+    const motorFixedTop_mm = motorBottomFixed_mm - motorH;
+    const actualMotorToAperture = c.actualMotorToAperture;
+
+    let apertureFixedTop_mm, requiredTravel, coverageOk, coverageTight, actualCoverage;
+    if (!c.displayAbove) {
+      const minApertureFromMotor_mm = motorBottomFixed_mm + actualMotorToAperture;
+      const apertureFromCanvas_mm = canvBottomUp_mm + CANVAS_FRAME;
+      apertureFixedTop_mm = Math.max(minApertureFromMotor_mm, apertureFromCanvas_mm);
+      const apertureBottom_mm = apertureFixedTop_mm + apertureH;
+      const distance = apertureBottom_mm - canvBottomUp_mm;
+      requiredTravel = distance + MIN_EDGE_COVERAGE;
+      actualCoverage = Math.round(c.travel - distance);
+      coverageOk = c.travel >= requiredTravel;
+      coverageTight = coverageOk && actualCoverage < CANVAS_FRAME;
+    } else {
+      const apertureBottom_above = motorFixedTop_mm - actualMotorToAperture;
+      apertureFixedTop_mm = apertureBottom_above - apertureH;
+      const canvTopRelFrame = hookTop ? -bar_mm : c.frameH - c.outerCanvH + bar_mm;
+      const canvTopUp_mm = canvTopRelFrame;
+      requiredTravel = canvTopUp_mm - apertureFixedTop_mm + MIN_EDGE_COVERAGE;
+      actualCoverage = Math.round(apertureFixedTop_mm - canvTopUp_mm);
+      coverageOk = canvTopUp_mm <= apertureFixedTop_mm - MIN_EDGE_COVERAGE;
+      coverageTight = coverageOk && actualCoverage < CANVAS_FRAME;
+    }
+
+    rows = [
+      { label:'Canvas Width (inner)', val: c.canvW + 'mm' },
+      { label:'Canvas Height (inner)', val: c.canvH + 'mm' },
+      { label:'Aperture Width', val: apertureW ? apertureW + 'mm' : '-' },
+      { label:'Aperture Height', val: apertureH ? apertureH + 'mm' : '-' },
+      { label:'Aperture To Motor', val: Math.round(actualMotorToAperture) + 'mm' },
+      { label:'Travel', val: c.travel + 'mm' },
+      { label:'Total Coverage Height', val: c.coverageH.toFixed(0) + 'mm' },
+    ];
+
+    if (c.tvW > 0 && c.tvH > 0) {
+      if (c.displayAbove) {
+        if (coverageOk) {
+          alertHTML += `<div class="alert ${coverageTight ? 'warn' : 'ok'}">${coverageTight ? `Coverage: canvas top overlaps aperture top by only ${actualCoverage}mm — less than recommended ${CANVAS_FRAME}mm. Minimum is 25mm.` : `Coverage: canvas top covers aperture top by ${actualCoverage}mm in the up position.`}</div>`;
+        } else {
+          alertHTML += `<div class="alert warn" style="background:rgba(204,51,51,0.15);border-color:rgba(204,51,51,0.6);">Coverage: canvas top does not reach aperture top — needs ${Math.round(requiredTravel)}mm higher (min 25mm overlap).</div>`;
+        }
+      } else {
+        if (coverageOk) {
+          alertHTML += `<div class="alert ${coverageTight ? 'warn' : 'ok'}">${coverageTight ? `Coverage: travel (${c.travel}mm) gives only ${actualCoverage}mm past aperture edge — less than recommended ${CANVAS_FRAME}mm. Minimum is 25mm.` : `Coverage: travel (${c.travel}mm) sufficient — ${actualCoverage}mm past aperture edge.`}</div>`;
+        } else {
+          alertHTML += `<div class="alert warn" style="background:rgba(204,51,51,0.15);border-color:rgba(204,51,51,0.6);">Coverage: travel (${c.travel}mm) too short — needs ${Math.round(requiredTravel)}mm (min 25mm past aperture edge).</div>`;
+        }
+      }
+      if (c.canvW < apertureW) {
+        alertHTML += `<div class="alert warn" style="background:rgba(204,51,51,0.15);border-color:rgba(204,51,51,0.6);">Width: aperture (${apertureW}mm) wider than canvas inner width (${c.canvW}mm) — set canvas width to ${apertureW}mm.</div>`;
+      }
+    }
+    if (c.needsCrossBrace) alertHTML += '<div class="alert ok">Cross brace added (canvas >50mm taller than moving frame).</div>';
   }
-  const rows = [
-    { label:'Canvas Width (inner)', val: c.canvW + 'mm' },
-    { label:'Canvas Height (inner)', val: c.canvH + 'mm' },
-    { label:'Aperture Width', val: apertureW ? apertureW + 'mm' : '-' },
-    { label:'Aperture Height', val: apertureH ? apertureH + 'mm' : '-' },
-    { label:'Aperture To Motor', val: Math.round(actualMotorToAperture) + 'mm' },
-    { label:'Travel', val: c.travel + 'mm' },
-    { label:'Total Coverage Height', val: c.coverageH.toFixed(0) + 'mm' },
-  ];
+
   box.innerHTML = rows.map(r =>
     '<div class="info-row"><span class="lbl">' + r.label + '</span><span class="val">' + r.val + '</span></div>'
   ).join('');
-  let alertHTML = '';
-  if (c.tvW > 0 && c.tvH > 0) {
-    if (c.displayAbove) {
-      if (coverageOk) {
-        alertHTML += `<div class="alert ${coverageTight ? 'warn' : 'ok'}">${coverageTight ? `Coverage: canvas top overlaps aperture top by only ${actualCoverage}mm — less than the recommended ${CANVAS_FRAME}mm frame width. Minimum is 25mm.` : `Coverage: canvas top covers aperture top by ${actualCoverage}mm in the up position.`}</div>`;
-      } else {
-        const shortfall = Math.round(requiredTravel);
-        alertHTML += `<div class="alert warn" style="background:rgba(204,51,51,0.15);border-color:rgba(204,51,51,0.6);">Coverage: canvas top does not reach aperture top in the up position — canvas needs to extend ${shortfall}mm higher (minimum 25mm overlap required).</div>`;
-      }
-    } else {
-      if (coverageOk) {
-        alertHTML += `<div class="alert ${coverageTight ? 'warn' : 'ok'}">${coverageTight ? `Coverage: travel (${c.travel}mm) gives only ${actualCoverage}mm overlap past aperture edge — less than the recommended ${CANVAS_FRAME}mm frame width. Minimum is 25mm.` : `Coverage: travel (${c.travel}mm) is sufficient — ${actualCoverage}mm past aperture edge.`}</div>`;
-      } else {
-        alertHTML += `<div class="alert warn" style="background:rgba(204,51,51,0.15);border-color:rgba(204,51,51,0.6);">Coverage: travel (${c.travel}mm) is too short — needs ${Math.round(requiredTravel)}mm to achieve minimum 25mm overlap past aperture edge.</div>`;
-      }
-    }
-    if (c.canvW < apertureW) {
-      alertHTML += `<div class="alert warn" style="background:rgba(204,51,51,0.15);border-color:rgba(204,51,51,0.6);">Width: aperture (${apertureW}mm) is wider than canvas inner width (${c.canvW}mm) — set canvas width to ${apertureW}mm to cover aperture edges.</div>`;
-    }
-  }
-  if (c.needsCrossBrace) {
-    alertHTML += '<div class="alert ok">Cross brace added (canvas >50mm taller than moving frame).</div>';
-  }
   alerts.innerHTML = alertHTML;
 }
+
 function draw() { drawFrame(animT); }
+
 function drawFrame(t) {
   updateInfo();
   const c = getCalc();
+  if (c.side) { drawFrameSide(t, c); return; }
+  drawFramePIC(t, c);
+}
+
+function drawFramePIC(t, c) {
   const cnv = document.getElementById('vis');
   const container = cnv.parentElement;
   const DPR = window.devicePixelRatio || 1;
@@ -414,32 +537,29 @@ function drawFrame(t) {
   const hookTop = c.hookTop;
   const displayAbove = c.displayAbove;
   const canvOffY_mm = hookTop ? -bar_mm : c.frameH - c.outerCanvH + bar_mm;
-  const canvTopRelFrame_mm = canvOffY_mm;
   const motorH_mm = c.motorH;
   const motorW_mm = c.motorW;
   const actualMotorToAperture_mm = c.actualMotorToAperture;
-  const frameTopAbs_mm = 0;
   const apertureH_mm = c.tvH > 0 ? c.tvH + c.apertureThick * 2 : 60;
   const apertureW_mm = c.tvW > 0 ? c.tvW + c.apertureThick * 2 : 100;
   const travelAbs_mm = t * c.travel;
-  const frameMovedTop_mm = frameTopAbs_mm + travelAbs_mm;
-  const canvMovedTop_mm = frameMovedTop_mm + canvTopRelFrame_mm;
-  const frameBottomUp_mm = frameTopAbs_mm + c.frameH;
+  const frameMovedTop_mm = travelAbs_mm;
+  const canvMovedTop_mm = frameMovedTop_mm + canvOffY_mm;
+  const frameBottomUp_mm = c.frameH;
   const motorBottomFixed_mm = frameBottomUp_mm - c.motorOffset;
   const motorFixedTop_mm = motorBottomFixed_mm - motorH_mm;
-  const canvBottomUp_mm = frameTopAbs_mm + canvTopRelFrame_mm + c.outerCanvH;
+  const canvBottomUp_mm = canvOffY_mm + c.outerCanvH;
   let apertureFixedTop_mm, tvTop_mm;
   if (!displayAbove) {
     const minApertureFromMotor = motorBottomFixed_mm + actualMotorToAperture_mm;
     const apertureFromCanvas = canvBottomUp_mm + CANVAS_FRAME;
     apertureFixedTop_mm = Math.max(minApertureFromMotor, apertureFromCanvas);
   } else {
-    const apertureBottom_above = motorFixedTop_mm - actualMotorToAperture_mm;
-    apertureFixedTop_mm = apertureBottom_above - apertureH_mm;
+    apertureFixedTop_mm = motorFixedTop_mm - actualMotorToAperture_mm - apertureH_mm;
   }
   tvTop_mm = apertureFixedTop_mm + c.apertureThick;
-  const canvTopUp_mm = 0 + canvTopRelFrame_mm;
-  const canvBottomDown_mm = c.travel + canvTopRelFrame_mm + c.outerCanvH;
+  const canvTopUp_mm = canvOffY_mm;
+  const canvBottomDown_mm = c.travel + canvOffY_mm + c.outerCanvH;
   const highestPoint_mm = Math.min(0, canvTopUp_mm, apertureFixedTop_mm);
   const lowestPoint_mm = Math.max(c.frameH, canvBottomDown_mm, apertureFixedTop_mm + apertureH_mm, motorBottomFixed_mm);
   const totalMechH_mm = lowestPoint_mm - highestPoint_mm;
@@ -458,19 +578,15 @@ function drawFrame(t) {
   const scaleByH = (containerH - 4 - LABEL_PX_GUARD * 2) / totalSceneH_mm;
   const scaleByW = (containerW - 4) / maxW_mm;
   const SCALE = Math.min(scaleByH, scaleByW);
-  cnv.width = containerW * DPR;
-  cnv.height = containerH * DPR;
-  cnv.style.width = containerW + 'px';
-  cnv.style.height = containerH + 'px';
+  cnv.width = containerW * DPR; cnv.height = containerH * DPR;
+  cnv.style.width = containerW + 'px'; cnv.style.height = containerH + 'px';
   const ctx = cnv.getContext('2d');
   ctx.scale(DPR, DPR);
   ctx.clearRect(0, 0, containerW, containerH);
-  ctx.fillStyle = '#f5f5f5';
-  ctx.fillRect(0, 0, containerW, containerH);
+  ctx.fillStyle = '#f5f5f5'; ctx.fillRect(0, 0, containerW, containerH);
   function mm(v) { return v * SCALE; }
   const cx = containerW / 2;
-  const sceneH_px = totalSceneH_mm * SCALE;
-  const originY = (containerH - sceneH_px) / 2 + mm(PAD_mm + TOP_PAD_EXTRA) - mm(highestPoint_mm) + LABEL_PX_GUARD;
+  const originY = (containerH - totalSceneH_mm * SCALE) / 2 + mm(PAD_mm + TOP_PAD_EXTRA) - mm(highestPoint_mm) + LABEL_PX_GUARD;
   function yOf(y_mm) { return originY + mm(y_mm); }
   function xLeft(w_mm) { return cx - mm(w_mm / 2); }
   const frameLeft = xLeft(c.frameW), frameTop = yOf(frameMovedTop_mm), frameW_px = mm(c.frameW), frameH_px = mm(c.frameH), fStroke = mm(fStroke_mm);
@@ -479,134 +595,286 @@ function drawFrame(t) {
   const apLeft = xLeft(apertureW_mm), apTop = yOf(apertureFixedTop_mm), apW = mm(apertureW_mm), apH = mm(apertureH_mm);
   const tvLeft = xLeft(tvW_mm), tvTop_px = yOf(tvTop_mm), tvW_px = mm(tvW_mm), tvH_px = mm(tvH_mm);
   if (c.tvW > 0 && c.tvH > 0) {
-    ctx.fillStyle = '#f5f5f5';
-    ctx.fillRect(apLeft, apTop, apW, apH);
-    ctx.save();
-    let region = new Path2D(); region.rect(apLeft, apTop, apW, apH); ctx.clip(region);
+    ctx.fillStyle = '#f5f5f5'; ctx.fillRect(apLeft, apTop, apW, apH);
+    ctx.save(); let region = new Path2D(); region.rect(apLeft, apTop, apW, apH); ctx.clip(region);
     ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 20;
-    ctx.strokeStyle = '#000'; ctx.lineWidth = 20; ctx.strokeRect(apLeft - 10, apTop - 10, apW + 20, apH + 20);
-    ctx.restore();
-    ctx.strokeStyle = '#f7f7f7'; ctx.lineWidth = 2; ctx.strokeRect(apLeft, apTop, apW, apH);
-    ctx.save();
-    ctx.beginPath(); ctx.roundRect(tvLeft, tvTop_px, tvW_px, tvH_px, 2); ctx.clip();
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 20; ctx.strokeRect(apLeft-10, apTop-10, apW+20, apH+20);
+    ctx.restore(); ctx.strokeStyle = '#f7f7f7'; ctx.lineWidth = 2; ctx.strokeRect(apLeft, apTop, apW, apH);
+    ctx.save(); ctx.beginPath(); ctx.roundRect(tvLeft, tvTop_px, tvW_px, tvH_px, 2); ctx.clip();
     ctx.fillStyle = '#111'; ctx.fillRect(tvLeft, tvTop_px, tvW_px, tvH_px);
-    ctx.strokeStyle = '#222'; ctx.lineWidth = 8; ctx.strokeRect(tvLeft + 4, tvTop_px + 4, tvW_px - 8, tvH_px - 8);
-    ctx.restore();
-    const grad = ctx.createLinearGradient(tvLeft, tvTop_px, tvLeft, tvTop_px + tvH_px);
-    grad.addColorStop(0, 'rgba(255,255,255,0.06)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.strokeStyle = '#222'; ctx.lineWidth = 8; ctx.strokeRect(tvLeft+4, tvTop_px+4, tvW_px-8, tvH_px-8); ctx.restore();
+    const grad = ctx.createLinearGradient(tvLeft, tvTop_px, tvLeft, tvTop_px+tvH_px);
+    grad.addColorStop(0,'rgba(255,255,255,0.06)'); grad.addColorStop(1,'rgba(0,0,0,0)');
     ctx.fillStyle = grad; ctx.fillRect(tvLeft, tvTop_px, tvW_px, tvH_px);
-    lbl(ctx, c.tvW + ' x ' + c.tvH + 'mm', cx, tvTop_px + tvH_px / 2 + 4, '#fff', '0.63rem');
+    lbl(ctx, c.tvW+' x '+c.tvH+'mm', cx, tvTop_px+tvH_px/2+4, '#fff', '0.63rem');
   }
-  ctx.save();
-  ctx.beginPath(); ctx.roundRect(motorLeft, motorTop, motorW_px, motorH_px, 2);
-  ctx.fillStyle = '#2a2a2a'; ctx.fill(); ctx.strokeStyle = '#444'; ctx.lineWidth = 1; ctx.stroke();
-  ctx.restore();
-  lbl(ctx, 'CASSETTE CUTOUT ' + motorW_mm + ' x ' + motorH_mm + 'mm', cx, motorTop + motorH_px / 2 + 4, '#fff', '0.55rem');
+  ctx.save(); ctx.beginPath(); ctx.roundRect(motorLeft, motorTop, motorW_px, motorH_px, 2);
+  ctx.fillStyle = '#2a2a2a'; ctx.fill(); ctx.strokeStyle = '#444'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
+  lbl(ctx, 'CASSETTE CUTOUT '+motorW_mm+' x '+motorH_mm+'mm', cx, motorTop+motorH_px/2+4, '#fff', '0.55rem');
   ctx.fillStyle = '#b0b0b0'; ctx.beginPath();
-  ctx.rect(frameLeft, frameTop, frameW_px, frameH_px); ctx.rect(frameLeft + fStroke, frameTop + fStroke, frameW_px - fStroke * 2, frameH_px - fStroke * 2);
+  ctx.rect(frameLeft, frameTop, frameW_px, frameH_px); ctx.rect(frameLeft+fStroke, frameTop+fStroke, frameW_px-fStroke*2, frameH_px-fStroke*2);
   ctx.fill('evenodd'); ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5; ctx.strokeRect(frameLeft, frameTop, frameW_px, frameH_px);
   if (c.needsCrossBrace) {
     const braceThickness = bar_mm;
-    let braceY_mm = hookTop ? frameMovedTop_mm + c.frameH + 2 + (braceThickness / 2) : frameMovedTop_mm - 2 - (braceThickness / 2);
-    const braceY = yOf(braceY_mm), braceLeft = canvLeft + bar, braceRight = canvLeft + outerCW - bar;
+    let braceY_mm = hookTop ? frameMovedTop_mm + c.frameH + 2 + braceThickness/2 : frameMovedTop_mm - 2 - braceThickness/2;
+    const braceY = yOf(braceY_mm), braceLeft = canvLeft+bar, braceRight = canvLeft+outerCW-bar;
     ctx.save(); ctx.globalAlpha = 0.9; ctx.fillStyle = '#c8a050';
-    ctx.fillRect(braceLeft, braceY - mm(braceThickness / 2), braceRight - braceLeft, mm(braceThickness));
-    ctx.strokeStyle = '#a07030'; ctx.lineWidth = 1; ctx.strokeRect(braceLeft, braceY - mm(braceThickness / 2), braceRight - braceLeft, mm(braceThickness));
+    ctx.fillRect(braceLeft, braceY-mm(braceThickness/2), braceRight-braceLeft, mm(braceThickness));
+    ctx.strokeStyle = '#a07030'; ctx.lineWidth = 1; ctx.strokeRect(braceLeft, braceY-mm(braceThickness/2), braceRight-braceLeft, mm(braceThickness));
     ctx.restore();
   }
   ctx.save(); ctx.globalAlpha = 0.9; ctx.fillStyle = '#c8a050';
-  ctx.fillRect(canvLeft, canvTop, outerCW, bar); ctx.fillRect(canvLeft, canvTop + outerCH - bar, outerCW, bar);
-  ctx.fillRect(canvLeft, canvTop + bar, bar, outerCH - bar * 2); ctx.fillRect(canvLeft + outerCW - bar, canvTop + bar, bar, outerCH - bar * 2);
+  ctx.fillRect(canvLeft, canvTop, outerCW, bar); ctx.fillRect(canvLeft, canvTop+outerCH-bar, outerCW, bar);
+  ctx.fillRect(canvLeft, canvTop+bar, bar, outerCH-bar*2); ctx.fillRect(canvLeft+outerCW-bar, canvTop+bar, bar, outerCH-bar*2);
   ctx.strokeStyle = '#a07030'; ctx.lineWidth = 1; ctx.strokeRect(canvLeft, canvTop, outerCW, outerCH); ctx.restore();
-  drawBrokenDimH(ctx, frameLeft, frameTop + frameH_px + 12, frameLeft + frameW_px, frameTop + frameH_px + 12, c.frameW + 'mm MOVING FRAME', '#777', 1.8);
-  drawBrokenDimV(ctx, frameLeft + frameW_px + 12, frameTop, frameLeft + frameW_px + 12, frameTop + frameH_px, c.frameH + 'mm MOVING FRAME', '#777', 1.8);
-  const dimRightX = cx + Math.max(mm(c.frameW), outerCW, apW, mm(motorW_mm)) / 2 + 20;
-  dimArrow(ctx, dimRightX + 40, yOf(highestPoint_mm), dimRightX + 40, yOf(lowestPoint_mm), (Math.round(totalMechH_mm) + 'mm total').toUpperCase(), '#000', '#000', 'v');
-  if (t > 0.01) dimArrow(ctx, dimRightX + 80, yOf(0), dimRightX + 80, yOf(t * c.travel), ('travel ' + Math.round(t * c.travel) + 'mm').toUpperCase(), '#cc3333', '#cc3333', 'v');
+  drawBrokenDimH(ctx, frameLeft, frameTop+frameH_px+12, frameLeft+frameW_px, frameTop+frameH_px+12, c.frameW+'mm MOVING FRAME', '#777', 1.8);
+  drawBrokenDimV(ctx, frameLeft+frameW_px+12, frameTop, frameLeft+frameW_px+12, frameTop+frameH_px, c.frameH+'mm MOVING FRAME', '#777', 1.8);
+  const dimRightX = cx + Math.max(mm(c.frameW), outerCW, apW, mm(motorW_mm))/2 + 20;
+  dimArrow(ctx, dimRightX+40, yOf(highestPoint_mm), dimRightX+40, yOf(lowestPoint_mm), (Math.round(totalMechH_mm)+'mm total').toUpperCase(), '#000', '#000', 'v');
+  if (t > 0.01) dimArrow(ctx, dimRightX+80, yOf(0), dimRightX+80, yOf(t*c.travel), ('travel '+Math.round(t*c.travel)+'mm').toUpperCase(), '#cc3333', '#cc3333', 'v');
   if (c.tvW > 0 && c.tvH > 0) {
-    const dimL1 = apLeft - 28;
-    const dimL2 = apLeft - 60;
-    const dimL3 = apLeft - 92;
-    dimArrow(ctx, dimL1, apTop, dimL1, apTop + apH, (Math.round(apertureH_mm) + 'mm aperture').toUpperCase(), '#000', '#000', 'v');
-    dimArrow(ctx, apLeft, apTop + apH + 36, apLeft + apW, apTop + apH + 36, (Math.round(apertureW_mm) + 'mm aperture').toUpperCase(), '#000', '#000', 'h');
+    const dimL1 = apLeft-28, dimL2 = apLeft-60, dimL3 = apLeft-92;
+    dimArrow(ctx, dimL1, apTop, dimL1, apTop+apH, (Math.round(apertureH_mm)+'mm aperture').toUpperCase(), '#000', '#000', 'v');
+    dimArrow(ctx, apLeft, apTop+apH+36, apLeft+apW, apTop+apH+36, (Math.round(apertureW_mm)+'mm aperture').toUpperCase(), '#000', '#000', 'h');
     if (!displayAbove) {
-      dimArrow(ctx, dimL2, yOf(motorBottomFixed_mm), dimL2, apTop, (Math.round(actualMotorToAperture_mm) + 'mm').toUpperCase(), '#000', '#000', 'v');
-      const cassetteToTop_mm = Math.round(motorFixedTop_mm - highestPoint_mm);
-      dimArrow(ctx, dimL3, yOf(highestPoint_mm), dimL3, yOf(motorFixedTop_mm), (cassetteToTop_mm + 'mm').toUpperCase(), '#000', '#000', 'v');
+      dimArrow(ctx, dimL2, yOf(motorBottomFixed_mm), dimL2, apTop, (Math.round(actualMotorToAperture_mm)+'mm').toUpperCase(), '#000', '#000', 'v');
+      dimArrow(ctx, dimL3, yOf(highestPoint_mm), dimL3, yOf(motorFixedTop_mm), (Math.round(motorFixedTop_mm-highestPoint_mm)+'mm').toUpperCase(), '#000', '#000', 'v');
     } else {
-      dimArrow(ctx, dimL2, yOf(motorFixedTop_mm), dimL2, yOf(apertureFixedTop_mm + apertureH_mm), (Math.round(actualMotorToAperture_mm) + 'mm').toUpperCase(), '#000', '#000', 'v');
-      const cassetteToBottom_mm = Math.round(lowestPoint_mm - motorBottomFixed_mm);
-      dimArrow(ctx, dimL3, yOf(motorBottomFixed_mm), dimL3, yOf(lowestPoint_mm), (cassetteToBottom_mm + 'mm').toUpperCase(), '#000', '#000', 'v');
+      dimArrow(ctx, dimL2, yOf(motorFixedTop_mm), dimL2, yOf(apertureFixedTop_mm+apertureH_mm), (Math.round(actualMotorToAperture_mm)+'mm').toUpperCase(), '#000', '#000', 'v');
+      dimArrow(ctx, dimL3, yOf(motorBottomFixed_mm), dimL3, yOf(lowestPoint_mm), (Math.round(lowestPoint_mm-motorBottomFixed_mm)+'mm').toUpperCase(), '#000', '#000', 'v');
     }
   }
-  if (t < 0.01 && Math.abs(yOf(motorBottomFixed_mm) - yOf(frameBottomUp_mm)) > 4) dimArrow(ctx, motorLeft - 16, yOf(frameBottomUp_mm), motorLeft - 16, yOf(motorBottomFixed_mm), (Math.round(c.motorOffset) + 'mm').toUpperCase(), '#555', '#555', 'v');
-  dimArrow(ctx, canvLeft + outerCW + 16, canvTop, canvLeft + outerCW + 16, canvTop + outerCH, (c.outerCanvH + 'mm canvas').toUpperCase(), '#000', '#000', 'v');
+  if (t < 0.01 && Math.abs(yOf(motorBottomFixed_mm)-yOf(frameBottomUp_mm)) > 4)
+    dimArrow(ctx, motorLeft-16, yOf(frameBottomUp_mm), motorLeft-16, yOf(motorBottomFixed_mm), (Math.round(c.motorOffset)+'mm').toUpperCase(), '#555', '#555', 'v');
+  dimArrow(ctx, canvLeft+outerCW+16, canvTop, canvLeft+outerCW+16, canvTop+outerCH, (c.outerCanvH+'mm canvas').toUpperCase(), '#000', '#000', 'v');
   if (displayAbove) {
-    dimArrow(ctx, canvLeft, canvTop + outerCH + 22, canvLeft + outerCW, canvTop + outerCH + 22, (c.outerCanvW + 'mm canvas').toUpperCase(), '#000', '#000', 'h');
+    dimArrow(ctx, canvLeft, canvTop+outerCH+22, canvLeft+outerCW, canvTop+outerCH+22, (c.outerCanvW+'mm canvas').toUpperCase(), '#000', '#000', 'h');
   } else {
-    dimArrow(ctx, canvLeft, canvTop - 22, canvLeft + outerCW, canvTop - 22, (c.outerCanvW + 'mm canvas').toUpperCase(), '#000', '#000', 'h');
+    dimArrow(ctx, canvLeft, canvTop-22, canvLeft+outerCW, canvTop-22, (c.outerCanvW+'mm canvas').toUpperCase(), '#000', '#000', 'h');
   }
 }
-function lbl(ctx, txt, x, y, color, size) {
-  ctx.save(); ctx.font = "600 " + size + " 'Open Sans', sans-serif"; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt.toUpperCase(), x, y); ctx.restore();
-}
-function dimArrow(ctx, x1, y1, x2, y2, label, lineColor, arrowColor, dir) {
-  ctx.save(); ctx.strokeStyle = lineColor; ctx.lineWidth = 1.2;
-  if (dir === 'v') {
-    if (Math.abs(y2 - y1) < 14) { ctx.restore(); return; }
-    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-    aHead(ctx, x1, y1 + (y2 > y1 ? 5 : -5), y2 > y1 ? 'down' : 'up', arrowColor);
-    aHead(ctx, x2, y2 + (y2 > y1 ? -5 : 5), y2 > y1 ? 'up' : 'down', arrowColor);
-    ctx.font = "700 0.68rem 'Open Sans', sans-serif"; ctx.fillStyle = lineColor; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.save(); ctx.translate(x1, (y1 + y2) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(label, 0, -10); ctx.restore();
+
+function drawFrameSide(t, c) {
+  const cnv = document.getElementById('vis');
+  const container = cnv.parentElement;
+  const DPR = window.devicePixelRatio || 1;
+  const bar_mm = CANVAS_FRAME;
+  const hookTop = c.hookTop;
+  const mirrorLeft = c.displayAbove;
+  const apertureH_mm = c.tvH > 0 ? c.tvH + c.apertureThick * 2 : c.frameH;
+  const apertureW_mm = c.tvW > 0 ? c.tvW + c.apertureThick * 2 : 100;
+  const tvH_mm = c.tvH;
+  const tvW_mm = c.tvW;
+  const plateW_mm = PICSIDE_PLATE_W;
+  const plateH_mm = PICSIDE_PLATE_H;
+  const canvTopRel_mm = hookTop ? -bar_mm : c.frameH - c.outerCanvH + bar_mm;
+  const plateFixedCenterY_mm = c.frameH / 2;
+
+  let plateFixedLeft_mm, frameLeftAt0_mm, apertureFixedLeft_mm, frameLeft_mm, canvOffX_mm, canvLeft_mm;
+
+  if (!mirrorLeft) {
+    plateFixedLeft_mm = 0;
+    frameLeftAt0_mm = plateFixedLeft_mm + plateW_mm - c.frameW;
+    frameLeft_mm = frameLeftAt0_mm + t * c.travel;
+    canvOffX_mm = c.frameW - c.outerCanvW + bar_mm;
+    canvLeft_mm = frameLeft_mm + canvOffX_mm;
+    apertureFixedLeft_mm = plateFixedLeft_mm + plateW_mm + c.plateToAperture;
   } else {
-    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-    aHead(ctx, x1 + 5, y1, 'right', arrowColor); aHead(ctx, x2 - 5, y2, 'left', arrowColor);
-    ctx.font = "700 0.68rem 'Open Sans', sans-serif"; ctx.fillStyle = lineColor; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(label, (x1 + x2) / 2, y1 - 6);
+    apertureFixedLeft_mm = 0;
+    plateFixedLeft_mm = apertureFixedLeft_mm - c.plateToAperture - plateW_mm;
+    frameLeftAt0_mm = apertureFixedLeft_mm - c.frameW;
+    frameLeft_mm = frameLeftAt0_mm - t * c.travel;
+    canvOffX_mm = c.frameW - bar_mm;
+    canvLeft_mm = frameLeft_mm + canvOffX_mm;
   }
-  ctx.restore();
+
+  const frameTop_mm = 0;
+  const canvTop_mm = frameTop_mm + canvTopRel_mm;
+  const canvCenterY_mm = canvTop_mm + c.outerCanvH / 2;
+  const apertureTop_mm = canvCenterY_mm - apertureH_mm / 2;
+  const plateTop_mm = plateFixedCenterY_mm - plateH_mm / 2;
+  const tvLeft_mm = apertureFixedLeft_mm + c.apertureThick;
+  const tvTop_mm = apertureTop_mm + c.apertureThick;
+
+  let frameLeftFull_mm, frameRightFull_mm;
+  if (!mirrorLeft) {
+    frameLeftFull_mm = Math.min(frameLeftAt0_mm + canvOffX_mm, frameLeftAt0_mm);
+    frameRightFull_mm = frameLeftAt0_mm + c.travel + Math.max(c.frameW, canvOffX_mm + c.outerCanvW);
+  } else {
+    frameRightFull_mm = Math.max(frameLeftAt0_mm + c.frameW, frameLeftAt0_mm + canvOffX_mm + c.outerCanvW);
+    frameLeftFull_mm = frameLeftAt0_mm - c.travel + Math.min(0, canvOffX_mm);
+  }
+
+  const fullLeft_mm = !mirrorLeft
+    ? Math.min(plateFixedLeft_mm, frameLeftFull_mm)
+    : Math.min(apertureFixedLeft_mm, frameLeftFull_mm);
+  const fullRight_mm = !mirrorLeft
+    ? Math.max(apertureFixedLeft_mm + apertureW_mm, frameRightFull_mm)
+    : Math.max(plateFixedLeft_mm + plateW_mm, frameRightFull_mm);
+
+  const allTop = Math.min(plateTop_mm, canvTop_mm, apertureTop_mm, frameTop_mm);
+  const allBottom = Math.max(plateTop_mm + plateH_mm, canvTop_mm + c.outerCanvH, apertureTop_mm + apertureH_mm, frameTop_mm + c.frameH);
+  const sceneW_mm = fullRight_mm - fullLeft_mm;
+  const sceneH_mm = allBottom - allTop;
+
+  const DIM_TOP = 80;
+  const DIM_BOTTOM = 70;
+  const DIM_LEFT = 60;
+  const DIM_RIGHT = 60;
+  const PAD = 30;
+  const containerW = container.clientWidth || 800;
+  const containerH = container.clientHeight || 500;
+  const scaleByW = (containerW - DIM_LEFT - DIM_RIGHT - PAD*2) / sceneW_mm;
+  const scaleByH = (containerH - DIM_TOP - DIM_BOTTOM - PAD*2) / sceneH_mm;
+  const SCALE = Math.min(scaleByW, scaleByH);
+
+  cnv.width = containerW * DPR; cnv.height = containerH * DPR;
+  cnv.style.width = containerW + 'px'; cnv.style.height = containerH + 'px';
+  const ctx = cnv.getContext('2d');
+  ctx.scale(DPR, DPR);
+  ctx.clearRect(0, 0, containerW, containerH);
+  ctx.fillStyle = '#f5f5f5'; ctx.fillRect(0, 0, containerW, containerH);
+
+  function mm(v) { return v * SCALE; }
+  const sceneW_px = sceneW_mm * SCALE;
+  const sceneH_px = sceneH_mm * SCALE;
+  const originX = DIM_LEFT + PAD + (containerW - DIM_LEFT - DIM_RIGHT - PAD*2 - sceneW_px) / 2 - mm(fullLeft_mm);
+  const originY = DIM_TOP + (containerH - DIM_TOP - DIM_BOTTOM - sceneH_px) / 2 - mm(allTop);
+  function xOf(x_mm) { return originX + mm(x_mm); }
+  function yOf(y_mm) { return originY + mm(y_mm); }
+
+  if (c.tvW > 0 && c.tvH > 0) {
+    const apX = xOf(apertureFixedLeft_mm), apY = yOf(apertureTop_mm);
+    const apW = mm(apertureW_mm), apH = mm(apertureH_mm);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(apX, apY, apW, apH);
+    ctx.save(); let region = new Path2D(); region.rect(apX, apY, apW, apH); ctx.clip(region);
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 20;
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 20; ctx.strokeRect(apX-10, apY-10, apW+20, apH+20);
+    ctx.restore(); ctx.strokeStyle = '#f7f7f7'; ctx.lineWidth = 2; ctx.strokeRect(apX, apY, apW, apH);
+    const tvX = xOf(tvLeft_mm), tvY = yOf(tvTop_mm), tvWpx = mm(tvW_mm), tvHpx = mm(tvH_mm);
+    ctx.save(); ctx.beginPath(); ctx.roundRect(tvX, tvY, tvWpx, tvHpx, 2); ctx.clip();
+    ctx.fillStyle = '#111'; ctx.fillRect(tvX, tvY, tvWpx, tvHpx);
+    ctx.strokeStyle = '#222'; ctx.lineWidth = 8; ctx.strokeRect(tvX+4, tvY+4, tvWpx-8, tvHpx-8); ctx.restore();
+    const grad = ctx.createLinearGradient(tvX, tvY, tvX, tvY+tvHpx);
+    grad.addColorStop(0,'rgba(255,255,255,0.06)'); grad.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle = grad; ctx.fillRect(tvX, tvY, tvWpx, tvHpx);
+    lbl(ctx, c.tvW+' x '+c.tvH+'mm', tvX+tvWpx/2, tvY+tvHpx/2+4, '#fff', '0.63rem');
+  } else {
+    const apX = xOf(apertureFixedLeft_mm), apY = yOf(apertureTop_mm);
+    const apW = mm(apertureW_mm), apH = mm(apertureH_mm);
+    ctx.fillStyle = '#e8e8e8'; ctx.fillRect(apX, apY, apW, apH);
+    ctx.save(); let region = new Path2D(); region.rect(apX, apY, apW, apH); ctx.clip(region);
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 20;
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 20; ctx.strokeRect(apX-10, apY-10, apW+20, apH+20);
+    ctx.restore(); ctx.strokeStyle = '#ccc'; ctx.lineWidth = 2; ctx.strokeRect(apX, apY, apW, apH);
+  }
+
+  const plateX = xOf(plateFixedLeft_mm), plateY = yOf(plateTop_mm);
+  const plateWpx = mm(plateW_mm), plateHpx = mm(plateH_mm);
+  ctx.save(); ctx.beginPath(); ctx.roundRect(plateX, plateY, plateWpx, plateHpx, mm(6));
+  ctx.fillStyle = '#2a2a2a'; ctx.fill(); ctx.strokeStyle = '#444'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
+  lbl(ctx, 'WALL PLATE '+plateW_mm+' x '+plateH_mm+'mm', plateX+plateWpx/2, plateY+plateHpx/2+4, '#fff', '0.5rem');
+  const holeCols = [plateX + mm(15), plateX + plateWpx - mm(15)];
+  const holeCenterY = plateY + plateHpx/2;
+  const holeSpacing = mm(75);
+  for (let col of holeCols) {
+    for (let i = -4; i <= 4; i++) {
+      const hy = holeCenterY + i * holeSpacing;
+      if (hy >= plateY + mm(5) && hy <= plateY + plateHpx - mm(5)) {
+        ctx.save(); ctx.beginPath(); ctx.arc(col, hy, mm(4), 0, Math.PI*2);
+        ctx.fillStyle = '#555'; ctx.fill(); ctx.restore();
+      }
+    }
+  }
+
+  const frameX = xOf(frameLeft_mm), frameY = yOf(frameTop_mm);
+  const frameWpx = mm(c.frameW), frameHpx = mm(c.frameH);
+  const fStroke = mm(FRAME_STROKE);
+  ctx.fillStyle = '#b0b0b0'; ctx.beginPath();
+  ctx.rect(frameX, frameY, frameWpx, frameHpx); ctx.rect(frameX+fStroke, frameY+fStroke, frameWpx-fStroke*2, frameHpx-fStroke*2);
+  ctx.fill('evenodd'); ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5; ctx.strokeRect(frameX, frameY, frameWpx, frameHpx);
+
+  const canvX = xOf(canvLeft_mm), canvY = yOf(canvTop_mm);
+  const outerCW = mm(c.outerCanvW), outerCH = mm(c.outerCanvH), bar = mm(bar_mm);
+
+  if (c.needsHorizBrace) {
+    const braceThickness = bar_mm;
+    let braceY_mm = hookTop ? frameTop_mm + c.frameH + 2 + braceThickness/2 : frameTop_mm - 2 - braceThickness/2;
+    const braceYpx = yOf(braceY_mm);
+    const bL = c.needsVertBrace ? (!mirrorLeft ? frameX : canvX + bar) : canvX + bar;
+    const bR = c.needsVertBrace ? (!mirrorLeft ? canvX + outerCW - bar : frameX + frameWpx) : canvX + outerCW - bar;
+    ctx.save(); ctx.globalAlpha = 0.9; ctx.fillStyle = '#c8a050';
+    ctx.fillRect(bL, braceYpx - mm(braceThickness/2), bR - bL, mm(braceThickness));
+    ctx.strokeStyle = '#a07030'; ctx.lineWidth = 1;
+    ctx.strokeRect(bL, braceYpx - mm(braceThickness/2), bR - bL, mm(braceThickness));
+    ctx.restore();
+  }
+
+  if (c.needsVertBrace) {
+    const vertBraceX = !mirrorLeft ? frameX - bar : frameX + frameWpx;
+    ctx.save(); ctx.globalAlpha = 0.9; ctx.fillStyle = '#c8a050';
+    ctx.fillRect(vertBraceX, canvY + bar, bar, outerCH - bar*2);
+    ctx.strokeStyle = '#a07030'; ctx.lineWidth = 1;
+    ctx.strokeRect(vertBraceX, canvY + bar, bar, outerCH - bar*2);
+    ctx.restore();
+  }
+
+  ctx.save(); ctx.globalAlpha = 0.9; ctx.fillStyle = '#c8a050';
+  ctx.fillRect(canvX, canvY, outerCW, bar); ctx.fillRect(canvX, canvY+outerCH-bar, outerCW, bar);
+  ctx.fillRect(canvX, canvY+bar, bar, outerCH-bar*2); ctx.fillRect(canvX+outerCW-bar, canvY+bar, bar, outerCH-bar*2);
+  ctx.strokeStyle = '#a07030'; ctx.lineWidth = 1; ctx.strokeRect(canvX, canvY, outerCW, outerCH); ctx.restore();
+
+  drawBrokenDimV(ctx, frameX-14, frameY, frameX-14, frameY+frameHpx, c.frameH+'mm MOVING FRAME', '#777', 1.8);
+  drawBrokenDimH(ctx, frameX, frameY+frameHpx+12, frameX+frameWpx, frameY+frameHpx+12, c.frameW+'mm MOVING FRAME', '#777', 1.8);
+
+  const dimBottomY = Math.max(canvY+outerCH, frameY+frameHpx) + 22;
+  dimArrow(ctx, canvX, dimBottomY, canvX+outerCW, dimBottomY, (c.outerCanvW+'mm canvas').toUpperCase(), '#000', '#000', 'h');
+  dimArrow(ctx, canvX-16, canvY, canvX-16, canvY+outerCH, (c.outerCanvH+'mm canvas').toUpperCase(), '#000', '#000', 'v');
+
+  const totalMechLeft_mm = fullLeft_mm;
+  const totalMechRight_mm = fullRight_mm;
+  const totalMechW_mm = Math.round(totalMechRight_mm - totalMechLeft_mm);
+  const dimTotalY = Math.min(yOf(allTop), canvY, yOf(apertureTop_mm)) - 36;
+  dimArrow(ctx, xOf(fullLeft_mm), dimTotalY, xOf(fullRight_mm), dimTotalY, (totalMechW_mm+'mm total mechanism').toUpperCase(), '#000', '#000', 'h');
+
+  const plateLeftX = xOf(plateFixedLeft_mm);
+  const plateRightX = xOf(plateFixedLeft_mm + plateW_mm);
+  const canvLeftAt0_mm = frameLeftAt0_mm + canvOffX_mm;
+  const canvRightAt0_mm = canvLeftAt0_mm + c.outerCanvW;
+  const farEdgeAt0X = !mirrorLeft ? xOf(canvLeftAt0_mm) : xOf(canvRightAt0_mm);
+  const plateEdgeX = !mirrorLeft ? plateLeftX : plateRightX;
+  const plateToFarEdge_mm = Math.round(Math.abs((!mirrorLeft ? plateFixedLeft_mm - canvLeftAt0_mm : canvRightAt0_mm - (plateFixedLeft_mm + plateW_mm))));
+  const dimPlateEdgeY = dimTotalY - 28;
+  dimArrow(ctx, plateEdgeX, dimPlateEdgeY, farEdgeAt0X, dimPlateEdgeY, (plateToFarEdge_mm+'mm plate to canvas edge').toUpperCase(), '#555', '#555', 'h');
+
+  if (t > 0.01) {
+    const travelDimY = dimPlateEdgeY - 28;
+    if (!mirrorLeft) {
+      dimArrow(ctx, xOf(frameLeftAt0_mm), travelDimY, xOf(frameLeftAt0_mm + t * c.travel), travelDimY, ('travel '+Math.round(t*c.travel)+'mm').toUpperCase(), '#cc3333', '#cc3333', 'h');
+    } else {
+      dimArrow(ctx, xOf(frameLeftAt0_mm - t * c.travel), travelDimY, xOf(frameLeftAt0_mm), travelDimY, ('travel '+Math.round(t*c.travel)+'mm').toUpperCase(), '#cc3333', '#cc3333', 'h');
+    }
+  }
+
+  if (c.tvW > 0 && c.tvH > 0) {
+    const apX = xOf(apertureFixedLeft_mm), apY = yOf(apertureTop_mm);
+    const apW = mm(apertureW_mm), apH = mm(apertureH_mm);
+    const dimRightX = apX + apW + 28;
+    dimArrow(ctx, dimRightX, apY, dimRightX, apY+apH, (Math.round(apertureH_mm)+'mm aperture').toUpperCase(), '#000', '#000', 'v');
+    const dimBelowY = apY + apH + 28;
+    dimArrow(ctx, apX, dimBelowY, apX+apW, dimBelowY, (Math.round(apertureW_mm)+'mm aperture').toUpperCase(), '#000', '#000', 'h');
+    if (!mirrorLeft) {
+      const plateRightX = xOf(plateFixedLeft_mm + plateW_mm);
+      dimArrow(ctx, plateRightX, dimBelowY + 28, apX, dimBelowY + 28, (Math.round(c.plateToAperture)+'mm plate to aperture').toUpperCase(), '#555', '#555', 'h');
+    } else {
+      const plateLeftX = xOf(plateFixedLeft_mm);
+      dimArrow(ctx, apX+apW, dimBelowY + 28, plateLeftX, dimBelowY + 28, (Math.round(c.plateToAperture)+'mm plate to aperture').toUpperCase(), '#555', '#555', 'h');
+    }
+  }
 }
-function drawBrokenDimH(ctx, x1, y1, x2, y2, label, color, lineWidth) {
-  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.font = "700 0.68rem 'Open Sans', sans-serif"; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const textW = ctx.measureText(label).width + 12, midX = (x1 + x2) / 2;
-  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(midX - textW/2, y1); ctx.moveTo(midX + textW/2, y1); ctx.lineTo(x2, y1); ctx.stroke();
-  ctx.fillText(label, midX, y1 - 2); aHead(ctx, x1 + 4, y1, 'right', color); aHead(ctx, x2 - 4, y1, 'left', color); ctx.restore();
-}
-function drawBrokenDimV(ctx, x1, y1, x2, y2, label, color, lineWidth) {
-  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.font = "700 0.68rem 'Open Sans', sans-serif"; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const textW = ctx.measureText(label).width + 12, midY = (y1 + y2) / 2;
-  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1, midY - textW/2); ctx.moveTo(x1, midY + textW/2); ctx.lineTo(x1, y2); ctx.stroke();
-  ctx.save(); ctx.translate(x1, midY); ctx.rotate(-Math.PI / 2); ctx.fillText(label, 0, 0); ctx.restore();
-  aHead(ctx, x1, y1 + 4, 'down', color); aHead(ctx, x1, y2 - 4, 'up', color); ctx.restore();
-}
-function aHead(ctx, x, y, dir, color) {
-  ctx.save(); ctx.fillStyle = color; ctx.beginPath(); const s = 5;
-  if (dir === 'down') { ctx.moveTo(x, y); ctx.lineTo(x - s/2, y - s); ctx.lineTo(x + s/2, y - s); }
-  else if (dir === 'up') { ctx.moveTo(x, y); ctx.lineTo(x - s/2, y + s); ctx.lineTo(x + s/2, y + s); }
-  else if (dir === 'right') { ctx.moveTo(x, y); ctx.lineTo(x - s, y - s/2); ctx.lineTo(x - s, y + s/2); }
-  else if (dir === 'left') { ctx.moveTo(x, y); ctx.lineTo(x + s, y - s/2); ctx.lineTo(x + s, y + s/2); }
-  ctx.closePath(); ctx.fill(); ctx.restore();
-}
-function applyTVWidthToCanvas() {
-  const tvW = parseFloat(document.getElementById('tvW').value) || 0;
-  const apertureThick = parseFloat(document.getElementById('apertureThick').value) || 0;
-  const apertureW = tvW + apertureThick * 2;
-  const canvWInp = document.getElementById('canvW');
-  const canvW = parseFloat(canvWInp.value) || 0;
-  if (apertureW > canvW) canvWInp.value = apertureW;
-}
-document.querySelectorAll('input[type="number"]').forEach(inp => {
-  inp.addEventListener('input', () => {
-    if (inp.id === 'tvW' || inp.id === 'tvH') { document.getElementById('tvDiag').value = '0'; if (inp.id === 'tvW') applyTVWidthToCanvas(); }
-    else if (inp.id === 'apertureThick') { applyTVWidthToCanvas(); }
-    else if (inp.id === 'frameW' || inp.id === 'frameH' || inp.id === 'travel') { activePreset = 'CUSTOM'; buildPresets(); }
-    updateInfo(); draw();
-  });
-});
-document.querySelectorAll('#canvW, #canvH, #apertureThick, #canvFrame').forEach(inp => { inp.addEventListener('input', () => { updateInfo(); draw(); }); });
-document.getElementById('hookTop').addEventListener('change', () => { updateInfo(); draw(); });
-document.getElementById('displayAbove').addEventListener('change', () => { updateInfo(); draw(); });
+
 function syncMotorTubeFields() {
+  if (isSIDE()) return;
   const pich = isPICH(), defW = pich ? PICH_MOTOR_W : PIC_MOTOR_W, defH = pich ? PICH_MOTOR_H : PIC_MOTOR_H;
   const wInp = document.getElementById('motorTubeW'), hInp = document.getElementById('motorTubeH');
   const wBtn = document.getElementById('motorTubeWReset'), hBtn = document.getElementById('motorTubeHReset');
@@ -616,6 +884,72 @@ function syncMotorTubeFields() {
   const offBtn = document.getElementById('motorToApertureOffsetReset');
   if (motorToApertureOffsetOverride === null) { offInp.value = 0; offBtn.classList.remove('visible'); } else offBtn.classList.add('visible');
 }
+
+function lbl(ctx, txt, x, y, color, size) {
+  ctx.save(); ctx.font = "600 "+size+" 'Open Sans', sans-serif"; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt.toUpperCase(), x, y); ctx.restore();
+}
+function dimArrow(ctx, x1, y1, x2, y2, label, lineColor, arrowColor, dir) {
+  ctx.save(); ctx.strokeStyle = lineColor; ctx.lineWidth = 1.2;
+  if (dir === 'v') {
+    if (Math.abs(y2-y1) < 14) { ctx.restore(); return; }
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    aHead(ctx, x1, y1+(y2>y1?5:-5), y2>y1?'down':'up', arrowColor);
+    aHead(ctx, x2, y2+(y2>y1?-5:5), y2>y1?'up':'down', arrowColor);
+    ctx.font = "700 0.68rem 'Open Sans', sans-serif"; ctx.fillStyle = lineColor; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.save(); ctx.translate(x1, (y1+y2)/2); ctx.rotate(-Math.PI/2); ctx.fillText(label, 0, -10); ctx.restore();
+  } else {
+    if (Math.abs(x2-x1) < 14) { ctx.restore(); return; }
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    aHead(ctx, x1+5, y1, x2>x1?'right':'left', arrowColor); aHead(ctx, x2-5, y2, x2>x1?'left':'right', arrowColor);
+    ctx.font = "700 0.68rem 'Open Sans', sans-serif"; ctx.fillStyle = lineColor; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(label, (x1+x2)/2, y1-6);
+  }
+  ctx.restore();
+}
+function drawBrokenDimH(ctx, x1, y1, x2, y2, label, color, lineWidth) {
+  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.font = "700 0.68rem 'Open Sans', sans-serif"; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const textW = ctx.measureText(label).width + 12, midX = (x1+x2)/2;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(midX-textW/2, y1); ctx.moveTo(midX+textW/2, y1); ctx.lineTo(x2, y1); ctx.stroke();
+  ctx.fillText(label, midX, y1-2); aHead(ctx, x1+4, y1, 'right', color); aHead(ctx, x2-4, y1, 'left', color); ctx.restore();
+}
+function drawBrokenDimV(ctx, x1, y1, x2, y2, label, color, lineWidth) {
+  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.font = "700 0.68rem 'Open Sans', sans-serif"; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const textW = ctx.measureText(label).width + 12, midY = (y1+y2)/2;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1, midY-textW/2); ctx.moveTo(x1, midY+textW/2); ctx.lineTo(x1, y2); ctx.stroke();
+  ctx.save(); ctx.translate(x1, midY); ctx.rotate(-Math.PI/2); ctx.fillText(label, 0, 0); ctx.restore();
+  aHead(ctx, x1, y1+4, 'down', color); aHead(ctx, x1, y2-4, 'up', color); ctx.restore();
+}
+function aHead(ctx, x, y, dir, color) {
+  ctx.save(); ctx.fillStyle = color; ctx.beginPath(); const s = 5;
+  if (dir === 'down') { ctx.moveTo(x, y); ctx.lineTo(x-s/2, y-s); ctx.lineTo(x+s/2, y-s); }
+  else if (dir === 'up') { ctx.moveTo(x, y); ctx.lineTo(x-s/2, y+s); ctx.lineTo(x+s/2, y+s); }
+  else if (dir === 'right') { ctx.moveTo(x, y); ctx.lineTo(x-s, y-s/2); ctx.lineTo(x-s, y+s/2); }
+  else if (dir === 'left') { ctx.moveTo(x, y); ctx.lineTo(x+s, y-s/2); ctx.lineTo(x+s, y+s/2); }
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function applyTVDimToCanvas() {
+  const tvW = parseFloat(document.getElementById('tvW').value) || 0;
+  const tvH = parseFloat(document.getElementById('tvH').value) || 0;
+  const apertureThick = parseFloat(document.getElementById('apertureThick').value) || 0;
+  const apertureW = tvW + apertureThick * 2;
+  const apertureH = tvH + apertureThick * 2;
+  const canvWInp = document.getElementById('canvW');
+  const canvHInp = document.getElementById('canvH');
+  const canvW = parseFloat(canvWInp.value) || 0;
+  const canvH = parseFloat(canvHInp.value) || 0;
+  if (!isSIDE() && apertureW > canvW) canvWInp.value = apertureW;
+  if (isSIDE() && apertureH > canvH) canvHInp.value = apertureH;
+}
+
+document.querySelectorAll('input[type="number"]').forEach(inp => {
+  inp.addEventListener('input', () => {
+    if (inp.id === 'tvW' || inp.id === 'tvH') { document.getElementById('tvDiag').value = '0'; if (inp.id === 'tvW' || inp.id === 'tvH') applyTVDimToCanvas(); }
+    else if (inp.id === 'apertureThick') { applyTVDimToCanvas(); }
+    updateInfo(); draw();
+  });
+});
+document.getElementById('hookTop').addEventListener('change', () => { updateInfo(); draw(); });
+document.getElementById('displayAbove').addEventListener('change', () => { updateInfo(); draw(); });
+
 document.getElementById('motorTubeW').addEventListener('input', () => {
   const pich = isPICH(), def = pich ? PICH_MOTOR_W : PIC_MOTOR_W, val = parseFloat(document.getElementById('motorTubeW').value);
   motorTubeWOverride = (isNaN(val) || val === def) ? null : val;
@@ -643,10 +977,21 @@ document.getElementById('motorToApertureOffset').addEventListener('input', () =>
   updateInfo(); draw();
 });
 document.getElementById('motorToApertureOffsetReset').addEventListener('click', () => { motorToApertureOffsetOverride = null; document.getElementById('motorToApertureOffset').value = 0; document.getElementById('motorToApertureOffsetReset').classList.remove('visible'); updateInfo(); draw(); });
-buildTVSelector(); buildPresets(); syncMotorTubeFields(); updateInfo(); draw();
-window.addEventListener('resize', draw);
+document.getElementById('sideApertureOffset').addEventListener('input', () => {
+  const val = parseFloat(document.getElementById('sideApertureOffset').value);
+  sideApertureOffsetOverride = (isNaN(val) || val === 0) ? null : val;
+  document.getElementById('sideApertureOffsetReset').classList.toggle('visible', sideApertureOffsetOverride !== null);
+  updateInfo(); draw();
+});
+document.getElementById('sideApertureOffsetReset').addEventListener('click', () => { sideApertureOffsetOverride = null; document.getElementById('sideApertureOffset').value = 0; document.getElementById('sideApertureOffsetReset').classList.remove('visible'); updateInfo(); draw(); });
+
 function exportMechanismProof() {
   const c = getCalc();
+  if (c.side) { exportSideProof(c); return; }
+  exportPICProof(c);
+}
+
+function exportPICProof(c) {
   const GAP = 60, TOP_H = 160, BOTTOM_H = 80, TITLE_H = 36;
   const LEFT_DIM = 110, RIGHT_DIM = 150, TOP_DIM = 60, BOT_DIM = 100;
   const FRAME_DIM_PAD = 90;
@@ -665,40 +1010,33 @@ function exportMechanismProof() {
   const tvTop_mm = apertureFixedTop_mm + c.apertureThick;
   const canvTopUp_mm = canvOffY_mm;
   function sceneBounds(tVal) {
-    const frameMovedTop = tVal * c.travel;
     const canvBottom = tVal * c.travel + canvOffY_mm + c.outerCanvH;
     const hp = Math.min(0, canvTopUp_mm, apertureFixedTop_mm);
     const lp = Math.max(c.frameH, canvBottom, apertureFixedTop_mm + apertureH_mm, motorBottomFixed_mm);
     return { hp, lp, totalH: lp - hp, maxW: Math.max(c.frameW, c.outerCanvW, apertureW_mm, motorW_mm) };
   }
   const bUp = sceneBounds(0), bDown = sceneBounds(1);
-  const sceneH_up = bUp.totalH, sceneH_down = bDown.totalH;
-  const sceneW_up = bUp.maxW, sceneW_down = bDown.maxW;
   const bShared = { hp: Math.min(bUp.hp, bDown.hp), lp: Math.max(bUp.lp, bDown.lp) };
   bShared.totalH = bShared.lp - bShared.hp;
   const sceneH_frame = c.outerCanvH, sceneW_frame = c.outerCanvW;
   function panelScale(sH, sW) {
-    const availH = 1000, availW = 1000;
-    const usableH = availH - TOP_DIM - BOT_DIM;
-    const usableW = availW - LEFT_DIM - RIGHT_DIM;
-    return Math.min(usableH / sH, usableW / sW);
+    const usableH = 1000 - TOP_DIM - BOT_DIM, usableW = 1000 - LEFT_DIM - RIGHT_DIM;
+    return Math.min(usableH/sH, usableW/sW);
   }
-  const scaleUp = panelScale(sceneH_up, sceneW_up);
-  const scaleDown = panelScale(sceneH_down, sceneW_down);
-  const scaleUpDown = Math.min(scaleUp, scaleDown);
-  const scaleFrame = Math.min((1000 - FRAME_DIM_PAD * 2 - 60) / sceneH_frame, (1000 - FRAME_DIM_PAD * 2) / sceneW_frame);
+  const scaleUpDown = Math.min(panelScale(bUp.totalH, bUp.maxW), panelScale(bDown.totalH, bDown.maxW));
+  const scaleFrame = Math.min((1000-FRAME_DIM_PAD*2-60)/sceneH_frame, (1000-FRAME_DIM_PAD*2)/sceneW_frame);
   const PANEL_W = 1000;
   const PROOF_W = PANEL_W * 3 + GAP * 2;
   const PROOF_H = TOP_H + TITLE_H + PANEL_W + BOTTOM_H;
   const proof = document.createElement('canvas'); proof.width = PROOF_W; proof.height = PROOF_H;
   const pc = proof.getContext('2d'); pc.fillStyle = '#ffffff'; pc.fillRect(0, 0, PROOF_W, PROOF_H);
-  let proofTitle = activePreset !== 'CUSTOM' ? activePreset + ' GUIDE' : (isPICH() ? 'PIC-H' : 'PIC') + ' CUSTOM GUIDE';
-  pc.fillStyle = '#000000'; pc.font = 'bold 28px Arial'; pc.textAlign = 'center'; pc.fillText(proofTitle, PROOF_W / 2, 54);
+  let proofTitle = activePreset + ' GUIDE';
+  pc.fillStyle = '#000000'; pc.font = 'bold 28px Arial'; pc.textAlign = 'center'; pc.fillText(proofTitle, PROOF_W/2, 54);
   pc.font = '16px Arial'; pc.fillStyle = '#555';
-  let presetLabel = 'Canvas ' + c.canvW + ' × ' + c.canvH + 'mm (outer ' + c.outerCanvW + ' × ' + c.outerCanvH + 'mm) | Frame ' + c.frameW + ' × ' + c.frameH + 'mm | Travel ' + c.travel + 'mm';
-  if (c.tvW > 0 && c.tvH > 0) presetLabel += ' | TV ' + c.tvW + ' × ' + c.tvH + 'mm | Aperture thickness ' + c.apertureThick + 'mm';
-  presetLabel += ' | Canvas profile ' + CANVAS_FRAME + 'mm × ' + CANVAS_FRAME + 'mm';
-  pc.fillText(presetLabel, PROOF_W / 2, 84);
+  let presetLabel = 'Canvas '+c.canvW+' × '+c.canvH+'mm (outer '+c.outerCanvW+' × '+c.outerCanvH+'mm) | Frame '+c.frameW+' × '+c.frameH+'mm | Travel '+c.travel+'mm';
+  if (c.tvW > 0 && c.tvH > 0) presetLabel += ' | TV '+c.tvW+' × '+c.tvH+'mm | Aperture thickness '+c.apertureThick+'mm';
+  presetLabel += ' | Canvas profile '+CANVAS_FRAME+'mm × '+CANVAS_FRAME+'mm';
+  pc.fillText(presetLabel, PROOF_W/2, 84);
   function renderPanel(tVal, mode) {
     const offscreen = document.createElement('canvas'); offscreen.width = PANEL_W; offscreen.height = PANEL_W;
     const ctx = offscreen.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, PANEL_W, PANEL_W);
@@ -710,21 +1048,22 @@ function exportMechanismProof() {
     const cx = PANEL_W / 2;
     let originY;
     if (mode === 'FRAME') {
-      originY = 60 + (PANEL_W - 60 - 40 - c.outerCanvH * SCALE) / 2 - canvOffY_mm * SCALE;
+      originY = 60 + (PANEL_W - 60 - 40 - c.outerCanvH * SCALE) / 2 - (c.hookTop ? -CANVAS_FRAME : c.frameH - c.outerCanvH + CANVAS_FRAME) * SCALE;
     } else {
       const usedH = bounds.totalH * SCALE;
       originY = TOP_DIM + (PANEL_W - TOP_DIM - BOT_DIM - usedH) / 2 - hp * SCALE;
     }
     function yOf(y_mm) { return originY + mm(y_mm); }
+    const canvOffY = c.hookTop ? -CANVAS_FRAME : c.frameH - c.outerCanvH + CANVAS_FRAME;
     const frameMovedTop_mm = t * c.travel;
-    const canvMovedTop_mm = frameMovedTop_mm + canvOffY_mm;
-    const frameLeft = cx - mm(c.frameW / 2), frameTop = yOf(frameMovedTop_mm);
+    const canvMovedTop_mm = frameMovedTop_mm + canvOffY;
+    const frameLeft = cx - mm(c.frameW/2), frameTop = yOf(frameMovedTop_mm);
     const fStroke = mm(fStroke_mm);
-    const canvLeft = cx - mm(c.outerCanvW / 2), canvTop = yOf(canvMovedTop_mm);
+    const canvLeft = cx - mm(c.outerCanvW/2), canvTop = yOf(canvMovedTop_mm);
     const outerCW = mm(c.outerCanvW), outerCH = mm(c.outerCanvH), bar = mm(bar_mm);
-    const motorLeft = cx - mm(motorW_mm / 2), motorTop = yOf(motorFixedTop_mm);
+    const motorLeft = cx - mm(motorW_mm/2), motorTop = yOf(motorFixedTop_mm);
     const motorW_px = mm(motorW_mm), motorH_px = mm(motorH_mm);
-    const apLeft = cx - mm(apertureW_mm / 2), apTop = yOf(apertureFixedTop_mm);
+    const apLeft = cx - mm(apertureW_mm/2), apTop = yOf(apertureFixedTop_mm);
     const apW = mm(apertureW_mm), apH = mm(apertureH_mm);
     const lp = bounds ? bounds.lp : 0;
     const totalMechH_mm = bounds ? bounds.totalH : 0;
@@ -734,76 +1073,316 @@ function exportMechanismProof() {
         let region = new Path2D(); region.rect(apLeft, apTop, apW, apH); ctx.clip(region);
         ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 20; ctx.strokeStyle = '#000'; ctx.lineWidth = 20; ctx.strokeRect(apLeft-10, apTop-10, apW+20, apH+20);
         ctx.restore(); ctx.strokeStyle = '#f7f7f7'; ctx.lineWidth = 2; ctx.strokeRect(apLeft, apTop, apW, apH);
-        ctx.save(); ctx.beginPath(); ctx.roundRect(cx - mm(c.tvW/2), yOf(tvTop_mm), mm(c.tvW), mm(c.tvH), 2); ctx.clip();
-        ctx.fillStyle = '#111'; ctx.fillRect(cx - mm(c.tvW/2), yOf(tvTop_mm), mm(c.tvW), mm(c.tvH));
-        ctx.strokeStyle = '#222'; ctx.lineWidth = 8; ctx.strokeRect(cx - mm(c.tvW/2)+4, yOf(tvTop_mm)+4, mm(c.tvW)-8, mm(c.tvH)-8);
+        ctx.save(); ctx.beginPath(); ctx.roundRect(cx-mm(c.tvW/2), yOf(tvTop_mm), mm(c.tvW), mm(c.tvH), 2); ctx.clip();
+        ctx.fillStyle = '#111'; ctx.fillRect(cx-mm(c.tvW/2), yOf(tvTop_mm), mm(c.tvW), mm(c.tvH));
+        ctx.strokeStyle = '#222'; ctx.lineWidth = 8; ctx.strokeRect(cx-mm(c.tvW/2)+4, yOf(tvTop_mm)+4, mm(c.tvW)-8, mm(c.tvH)-8);
         ctx.restore(); ctx.font = "600 11px Arial"; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText((c.tvW + 'mm (W) x ' + c.tvH + 'mm (H)').toUpperCase(), cx, yOf(tvTop_mm) + mm(c.tvH)/2 + 4);
+        ctx.fillText((c.tvW+'mm (W) x '+c.tvH+'mm (H)').toUpperCase(), cx, yOf(tvTop_mm)+mm(c.tvH)/2+4);
       }
       ctx.save(); ctx.beginPath(); ctx.roundRect(motorLeft, motorTop, motorW_px, motorH_px, 2); ctx.fillStyle = '#2a2a2a'; ctx.fill(); ctx.strokeStyle = '#444'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
       ctx.font = "600 10px Arial"; ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText(('CASSETTE CUTOUT ' + motorW_mm + ' x ' + motorH_mm + 'mm').toUpperCase(), cx, motorTop + motorH_px/2);
+      ctx.fillText(('CASSETTE CUTOUT '+motorW_mm+' x '+motorH_mm+'mm').toUpperCase(), cx, motorTop+motorH_px/2);
       ctx.fillStyle = '#b0b0b0'; ctx.beginPath(); ctx.rect(frameLeft, frameTop, mm(c.frameW), mm(c.frameH)); ctx.rect(frameLeft+fStroke, frameTop+fStroke, mm(c.frameW)-fStroke*2, mm(c.frameH)-fStroke*2); ctx.fill('evenodd');
       ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5; ctx.strokeRect(frameLeft, frameTop, mm(c.frameW), mm(c.frameH));
     }
     if (c.needsCrossBrace) {
-      let braceY_mm = hookTop ? frameMovedTop_mm + c.frameH + 2 + (bar_mm / 2) : frameMovedTop_mm - 2 - (bar_mm / 2);
-      let edgeY_mm = hookTop ? braceY_mm - (bar_mm / 2) : braceY_mm + (bar_mm / 2);
-      ctx.save(); ctx.globalAlpha = 0.9; ctx.fillStyle = '#c8a050'; ctx.fillRect(canvLeft + bar, yOf(braceY_mm) - mm(bar_mm / 2), outerCW - bar * 2, mm(bar_mm)); ctx.strokeStyle = '#a07030'; ctx.lineWidth = 1; ctx.strokeRect(canvLeft + bar, yOf(braceY_mm) - mm(bar_mm / 2), outerCW - bar * 2, mm(bar_mm)); ctx.restore();
+      let braceY_mm = hookTop ? frameMovedTop_mm+c.frameH+2+bar_mm/2 : frameMovedTop_mm-2-bar_mm/2;
+      let edgeY_mm = hookTop ? braceY_mm-bar_mm/2 : braceY_mm+bar_mm/2;
+      ctx.save(); ctx.globalAlpha=0.9; ctx.fillStyle='#c8a050'; ctx.fillRect(canvLeft+bar, yOf(braceY_mm)-mm(bar_mm/2), outerCW-bar*2, mm(bar_mm)); ctx.strokeStyle='#a07030'; ctx.lineWidth=1; ctx.strokeRect(canvLeft+bar, yOf(braceY_mm)-mm(bar_mm/2), outerCW-bar*2, mm(bar_mm)); ctx.restore();
       if (mode === 'FRAME') {
-        dimArrow(ctx, canvLeft + outerCW - bar - 20, yOf(edgeY_mm), canvLeft + outerCW - bar - 20, yOf(hookTop ? frameMovedTop_mm : frameMovedTop_mm + c.frameH), ((c.frameH + 2) + 'mm').toUpperCase(), '#000', '#000', 'v');
+        dimArrow(ctx, canvLeft+outerCW-bar-20, yOf(edgeY_mm), canvLeft+outerCW-bar-20, yOf(hookTop ? frameMovedTop_mm : frameMovedTop_mm+c.frameH), ((c.frameH+2)+'mm').toUpperCase(), '#000', '#000', 'v');
       }
     }
-    ctx.save(); ctx.globalAlpha = 0.9; ctx.fillStyle = '#c8a050'; ctx.fillRect(canvLeft, canvTop, outerCW, bar); ctx.fillRect(canvLeft, canvTop+outerCH-bar, outerCW, bar); ctx.fillRect(canvLeft, canvTop+bar, bar, outerCH-bar*2); ctx.fillRect(canvLeft+outerCW-bar, canvTop+bar, bar, outerCH-bar*2); ctx.strokeStyle='#a07030'; ctx.lineWidth=1; ctx.strokeRect(canvLeft, canvTop, outerCW, outerCH); ctx.restore();
+    ctx.save(); ctx.globalAlpha=0.9; ctx.fillStyle='#c8a050'; ctx.fillRect(canvLeft,canvTop,outerCW,bar); ctx.fillRect(canvLeft,canvTop+outerCH-bar,outerCW,bar); ctx.fillRect(canvLeft,canvTop+bar,bar,outerCH-bar*2); ctx.fillRect(canvLeft+outerCW-bar,canvTop+bar,bar,outerCH-bar*2); ctx.strokeStyle='#a07030'; ctx.lineWidth=1; ctx.strokeRect(canvLeft,canvTop,outerCW,outerCH); ctx.restore();
     if (mode !== 'FRAME') {
-      drawBrokenDimH(ctx, frameLeft, frameTop + mm(c.frameH) + 14, frameLeft + mm(c.frameW), frameTop + mm(c.frameH) + 14, c.frameW + 'mm', '#777', 1.8);
-      drawBrokenDimV(ctx, frameLeft + mm(c.frameW) + 14, frameTop, frameLeft + mm(c.frameW) + 14, frameTop + mm(c.frameH), c.frameH + 'mm', '#777', 1.8);
+      drawBrokenDimH(ctx, frameLeft, frameTop+mm(c.frameH)+14, frameLeft+mm(c.frameW), frameTop+mm(c.frameH)+14, c.frameW+'mm', '#777', 1.8);
+      drawBrokenDimV(ctx, frameLeft+mm(c.frameW)+14, frameTop, frameLeft+mm(c.frameW)+14, frameTop+mm(c.frameH), c.frameH+'mm', '#777', 1.8);
     }
     if (mode === 'FRAME') {
-      dimArrow(ctx, canvLeft - 24, canvTop, canvLeft - 24, canvTop + outerCH, (c.outerCanvH + 'mm').toUpperCase(), '#000', '#000', 'v');
-      dimArrow(ctx, canvLeft, canvTop - 32, canvLeft + outerCW, canvTop - 32, (c.outerCanvW + 'mm').toUpperCase(), '#000', '#000', 'h');
-      dimArrow(ctx, canvLeft + bar + 34, canvTop + bar, canvLeft + bar + 34, canvTop + outerCH - bar, (c.canvH + 'mm').toUpperCase(), '#000', '#000', 'v');
-      dimArrow(ctx, canvLeft + bar, canvTop + bar + 40, canvLeft + outerCW - bar, canvTop + bar + 40, (c.canvW + 'mm').toUpperCase(), '#000', '#000', 'h');
-      dimArrow(ctx, canvLeft - 24, canvTop + outerCH - bar, canvLeft - 24, canvTop + outerCH, (bar_mm + 'mm').toUpperCase(), '#555', '#555', 'v');
+      dimArrow(ctx, canvLeft-24, canvTop, canvLeft-24, canvTop+outerCH, (c.outerCanvH+'mm').toUpperCase(), '#000', '#000', 'v');
+      dimArrow(ctx, canvLeft, canvTop-32, canvLeft+outerCW, canvTop-32, (c.outerCanvW+'mm').toUpperCase(), '#000', '#000', 'h');
+      dimArrow(ctx, canvLeft+bar+34, canvTop+bar, canvLeft+bar+34, canvTop+outerCH-bar, (c.canvH+'mm').toUpperCase(), '#000', '#000', 'v');
+      dimArrow(ctx, canvLeft+bar, canvTop+bar+40, canvLeft+outerCW-bar, canvTop+bar+40, (c.canvW+'mm').toUpperCase(), '#000', '#000', 'h');
+      dimArrow(ctx, canvLeft-24, canvTop+outerCH-bar, canvLeft-24, canvTop+outerCH, (bar_mm+'mm').toUpperCase(), '#555', '#555', 'v');
     } else {
-      const dimRightX = cx + Math.max(mm(c.frameW), outerCW, apW, mm(motorW_mm)) / 2 + 30;
-      dimArrow(ctx, dimRightX + 44, yOf(hp), dimRightX + 44, yOf(lp), (Math.round(totalMechH_mm) + 'mm total').toUpperCase(), '#000', '#000', 'v');
-      if (t > 0.01) dimArrow(ctx, dimRightX + 88, yOf(0), dimRightX + 88, yOf(t * c.travel), ('travel ' + Math.round(t * c.travel) + 'mm').toUpperCase(), '#cc3333', '#cc3333', 'v');
+      const dimRightX = cx + Math.max(mm(c.frameW), outerCW, apW, mm(motorW_mm))/2 + 30;
+      dimArrow(ctx, dimRightX+44, yOf(hp), dimRightX+44, yOf(lp), (Math.round(totalMechH_mm)+'mm total').toUpperCase(), '#000', '#000', 'v');
+      if (t > 0.01) dimArrow(ctx, dimRightX+88, yOf(0), dimRightX+88, yOf(t*c.travel), ('travel '+Math.round(t*c.travel)+'mm').toUpperCase(), '#cc3333', '#cc3333', 'v');
       if (c.tvW > 0 && c.tvH > 0) {
-        dimArrow(ctx, apLeft - 74, apTop, apLeft - 74, apTop + apH, (Math.round(apertureH_mm) + 'mm aperture').toUpperCase(), '#000', '#000', 'v');
-        dimArrow(ctx, apLeft, apTop + apH + 40, apLeft + apW, apTop + apH + 40, (Math.round(apertureW_mm) + 'mm aperture').toUpperCase(), '#000', '#000', 'h');
+        dimArrow(ctx, apLeft-74, apTop, apLeft-74, apTop+apH, (Math.round(apertureH_mm)+'mm aperture').toUpperCase(), '#000', '#000', 'v');
+        dimArrow(ctx, apLeft, apTop+apH+40, apLeft+apW, apTop+apH+40, (Math.round(apertureW_mm)+'mm aperture').toUpperCase(), '#000', '#000', 'h');
         if (!displayAbove) {
-          dimArrow(ctx, apLeft - 74, yOf(motorBottomFixed_mm), apLeft - 74, apTop, (Math.round(actualMotorToAperture_mm) + 'mm').toUpperCase(), '#000', '#000', 'v');
-          dimArrow(ctx, apLeft - 74, yOf(hp), apLeft - 74, yOf(motorFixedTop_mm), (Math.round(motorFixedTop_mm - hp) + 'mm').toUpperCase(), '#000', '#000', 'v');
+          dimArrow(ctx, apLeft-74, yOf(motorBottomFixed_mm), apLeft-74, apTop, (Math.round(actualMotorToAperture_mm)+'mm').toUpperCase(), '#000', '#000', 'v');
+          dimArrow(ctx, apLeft-74, yOf(hp), apLeft-74, yOf(motorFixedTop_mm), (Math.round(motorFixedTop_mm-hp)+'mm').toUpperCase(), '#000', '#000', 'v');
         } else {
-          dimArrow(ctx, apLeft - 74, yOf(motorFixedTop_mm), apLeft - 74, yOf(apertureFixedTop_mm + apertureH_mm), (Math.round(actualMotorToAperture_mm) + 'mm').toUpperCase(), '#000', '#000', 'v');
-          dimArrow(ctx, apLeft - 74, yOf(motorBottomFixed_mm), apLeft - 74, yOf(lp), (Math.round(lp - motorBottomFixed_mm) + 'mm').toUpperCase(), '#000', '#000', 'v');
+          dimArrow(ctx, apLeft-74, yOf(motorFixedTop_mm), apLeft-74, yOf(apertureFixedTop_mm+apertureH_mm), (Math.round(actualMotorToAperture_mm)+'mm').toUpperCase(), '#000', '#000', 'v');
+          dimArrow(ctx, apLeft-74, yOf(motorBottomFixed_mm), apLeft-74, yOf(lp), (Math.round(lp-motorBottomFixed_mm)+'mm').toUpperCase(), '#000', '#000', 'v');
         }
       }
-      if (t < 0.01 && Math.abs(yOf(motorBottomFixed_mm) - yOf(frameBottomUp_mm)) > 4) dimArrow(ctx, motorLeft - 24, yOf(frameBottomUp_mm), motorLeft - 24, yOf(motorBottomFixed_mm), (Math.round(c.motorOffset) + 'mm').toUpperCase(), '#555', '#555', 'v');
-      dimArrow(ctx, canvLeft + outerCW + 20, canvTop, canvLeft + outerCW + 20, canvTop + outerCH, (c.outerCanvH + 'mm canvas').toUpperCase(), '#000', '#000', 'v');
+      if (t < 0.01 && Math.abs(yOf(motorBottomFixed_mm)-yOf(frameBottomUp_mm)) > 4) dimArrow(ctx, motorLeft-24, yOf(frameBottomUp_mm), motorLeft-24, yOf(motorBottomFixed_mm), (Math.round(c.motorOffset)+'mm').toUpperCase(), '#555', '#555', 'v');
+      dimArrow(ctx, canvLeft+outerCW+20, canvTop, canvLeft+outerCW+20, canvTop+outerCH, (c.outerCanvH+'mm canvas').toUpperCase(), '#000', '#000', 'v');
       if (displayAbove) {
-        dimArrow(ctx, canvLeft, canvTop + outerCH + 28, canvLeft + outerCW, canvTop + outerCH + 28, (c.outerCanvW + 'mm canvas').toUpperCase(), '#000', '#000', 'h');
+        dimArrow(ctx, canvLeft, canvTop+outerCH+28, canvLeft+outerCW, canvTop+outerCH+28, (c.outerCanvW+'mm canvas').toUpperCase(), '#000', '#000', 'h');
       } else {
-        dimArrow(ctx, canvLeft, canvTop - 28, canvLeft + outerCW, canvTop - 28, (c.outerCanvW + 'mm canvas').toUpperCase(), '#000', '#000', 'h');
+        dimArrow(ctx, canvLeft, canvTop-28, canvLeft+outerCW, canvTop-28, (c.outerCanvW+'mm canvas').toUpperCase(), '#000', '#000', 'h');
       }
     }
     return offscreen;
   }
-  const upPanel = renderPanel(0, 'UP'), downPanel = renderPanel(1, 'DOWN'), framePanel = renderPanel(0, 'FRAME');
-  const startX = (PROOF_W - (PANEL_W * 3 + GAP * 2)) / 2;
+  const upPanel = renderPanel(0,'UP'), downPanel = renderPanel(1,'DOWN'), framePanel = renderPanel(0,'FRAME');
+  const startX = (PROOF_W - (PANEL_W*3+GAP*2)) / 2;
   const panelY = TOP_H + TITLE_H;
   pc.font = 'bold 22px Arial'; pc.fillStyle = '#000'; pc.textAlign = 'center';
-  pc.fillText('UP POSITION', startX + PANEL_W / 2, TOP_H + TITLE_H - 10);
-  pc.fillText('DOWN POSITION', startX + PANEL_W + GAP + PANEL_W / 2, TOP_H + TITLE_H - 10);
-  pc.fillText('CANVAS DETAILS', startX + (PANEL_W + GAP) * 2 + PANEL_W / 2, TOP_H + TITLE_H - 10);
+  pc.fillText('UP POSITION', startX+PANEL_W/2, TOP_H+TITLE_H-10);
+  pc.fillText('DOWN POSITION', startX+PANEL_W+GAP+PANEL_W/2, TOP_H+TITLE_H-10);
+  pc.fillText('CANVAS DETAILS', startX+(PANEL_W+GAP)*2+PANEL_W/2, TOP_H+TITLE_H-10);
   pc.drawImage(upPanel, startX, panelY, PANEL_W, PANEL_W);
-  pc.drawImage(downPanel, startX + PANEL_W + GAP, panelY, PANEL_W, PANEL_W);
-  pc.drawImage(framePanel, startX + (PANEL_W + GAP) * 2, panelY, PANEL_W, PANEL_W);
-  pc.font = '13px Arial'; pc.fillStyle = '#888'; pc.textAlign = 'center'; pc.fillText('PIC Mechanism Visualiser — Future Automation', PROOF_W / 2, panelY + PANEL_W + 50);
-  const a = document.createElement('a'); a.href = proof.toDataURL('image/jpeg', 0.93); a.download = proofTitle + '.jpg'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  pc.drawImage(downPanel, startX+PANEL_W+GAP, panelY, PANEL_W, PANEL_W);
+  pc.drawImage(framePanel, startX+(PANEL_W+GAP)*2, panelY, PANEL_W, PANEL_W);
+  pc.font = '13px Arial'; pc.fillStyle = '#888'; pc.textAlign = 'center'; pc.fillText('PIC Mechanism Visualiser — Future Automation', PROOF_W/2, panelY+PANEL_W+50);
+  const a = document.createElement('a'); a.href = proof.toDataURL('image/jpeg', 0.93); a.download = activePreset+' GUIDE.jpg'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
+
+function exportSideProof(c) {
+  const GAP = 60, TOP_H = 160, BOTTOM_H = 80, TITLE_H = 36;
+  const PANEL_W = 1000;
+  const PROOF_W = PANEL_W * 3 + GAP * 2;
+  const PROOF_H = TOP_H + TITLE_H + PANEL_W + BOTTOM_H;
+  const proof = document.createElement('canvas'); proof.width = PROOF_W; proof.height = PROOF_H;
+  const pc = proof.getContext('2d'); pc.fillStyle = '#ffffff'; pc.fillRect(0, 0, PROOF_W, PROOF_H);
+  pc.fillStyle = '#000000'; pc.font = 'bold 28px Arial'; pc.textAlign = 'center'; pc.fillText(activePreset + ' GUIDE', PROOF_W/2, 54);
+  pc.font = '16px Arial'; pc.fillStyle = '#555';
+  let presetLabel = 'Canvas '+c.canvW+' × '+c.canvH+'mm (outer '+c.outerCanvW+' × '+c.outerCanvH+'mm) | Frame '+c.frameW+' × '+c.frameH+'mm | Travel '+c.travel+'mm';
+  if (c.tvW > 0 && c.tvH > 0) presetLabel += ' | TV '+c.tvW+' × '+c.tvH+'mm | Aperture thickness '+c.apertureThick+'mm';
+  presetLabel += ' | Canvas profile '+CANVAS_FRAME+'mm × '+CANVAS_FRAME+'mm';
+  pc.fillText(presetLabel, PROOF_W/2, 84);
+
+  function renderSidePanel(tVal, mode) {
+    const offscreen = document.createElement('canvas'); offscreen.width = PANEL_W; offscreen.height = PANEL_W;
+    const ctx = offscreen.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, PANEL_W, PANEL_W);
+    const bar_mm = CANVAS_FRAME;
+    const hookTop = c.hookTop;
+    const mirrorLeft = c.displayAbove;
+    const apertureH_mm = c.tvH > 0 ? c.tvH + c.apertureThick*2 : c.frameH;
+    const apertureW_mm = c.tvW > 0 ? c.tvW + c.apertureThick*2 : 100;
+    const plateW_mm = PICSIDE_PLATE_W, plateH_mm = PICSIDE_PLATE_H;
+    const canvTopRel_mm = hookTop ? -bar_mm : c.frameH - c.outerCanvH + bar_mm;
+    const plateCenterY_mm = c.frameH / 2;
+    const t = tVal;
+
+    let plateFixedLeft_mm, frameLeftAt0_mm, apertureFixedLeft_mm, frameLeft_mm, canvOffX_mm, canvLeft_mm;
+    if (!mirrorLeft) {
+      plateFixedLeft_mm = 0;
+      frameLeftAt0_mm = plateFixedLeft_mm + plateW_mm - c.frameW;
+      frameLeft_mm = frameLeftAt0_mm + t * c.travel;
+      canvOffX_mm = c.frameW - c.outerCanvW + bar_mm;
+      canvLeft_mm = frameLeft_mm + canvOffX_mm;
+      apertureFixedLeft_mm = plateFixedLeft_mm + plateW_mm + c.plateToAperture;
+    } else {
+      apertureFixedLeft_mm = 0;
+      plateFixedLeft_mm = apertureFixedLeft_mm - c.plateToAperture - plateW_mm;
+      frameLeftAt0_mm = apertureFixedLeft_mm - c.frameW;
+      frameLeft_mm = frameLeftAt0_mm - t * c.travel;
+      canvOffX_mm = c.frameW - bar_mm;
+      canvLeft_mm = frameLeft_mm + canvOffX_mm;
+    }
+
+    const canvTop_mm = canvTopRel_mm;
+    const canvCenterY_mm = canvTop_mm + c.outerCanvH / 2;
+    const apertureTop_mm = canvCenterY_mm - apertureH_mm/2;
+    const plateTop_mm = plateCenterY_mm - plateH_mm/2;
+    const tvLeft_mm = apertureFixedLeft_mm + c.apertureThick;
+    const tvTop_mm = apertureTop_mm + c.apertureThick;
+
+    let frameLeftFull_mm, frameRightFull_mm;
+    if (!mirrorLeft) {
+      frameLeftFull_mm = Math.min(frameLeftAt0_mm + canvOffX_mm, frameLeftAt0_mm);
+      frameRightFull_mm = frameLeftAt0_mm + c.travel + Math.max(c.frameW, canvOffX_mm + c.outerCanvW);
+    } else {
+      frameRightFull_mm = Math.max(frameLeftAt0_mm + c.frameW, frameLeftAt0_mm + canvOffX_mm + c.outerCanvW);
+      frameLeftFull_mm = frameLeftAt0_mm - c.travel + Math.min(0, canvOffX_mm);
+    }
+    const fullLeft_mm = !mirrorLeft ? Math.min(plateFixedLeft_mm, frameLeftFull_mm) : Math.min(apertureFixedLeft_mm, frameLeftFull_mm);
+    const fullRight_mm = !mirrorLeft ? Math.max(apertureFixedLeft_mm + apertureW_mm, frameRightFull_mm) : Math.max(plateFixedLeft_mm + plateW_mm, frameRightFull_mm);
+
+    if (mode === 'CANVAS') {
+      const DIM_PAD = 80;
+      const SCALE = Math.min((PANEL_W-DIM_PAD*2-40)/c.outerCanvW, (PANEL_W-DIM_PAD*2-40)/c.outerCanvH);
+      function mm(v) { return v * SCALE; }
+      const originX = PANEL_W/2 - mm(c.outerCanvW)/2;
+      const originY = PANEL_W/2 - mm(c.outerCanvH)/2;
+      function xOf(x) { return originX + mm(x); }
+      function yOf(y) { return originY + mm(y); }
+      const bar = mm(bar_mm);
+      const outerCW = mm(c.outerCanvW), outerCH = mm(c.outerCanvH);
+      ctx.save(); ctx.globalAlpha=0.9; ctx.fillStyle='#c8a050';
+      ctx.fillRect(originX,originY,outerCW,bar); ctx.fillRect(originX,originY+outerCH-bar,outerCW,bar);
+      ctx.fillRect(originX,originY+bar,bar,outerCH-bar*2); ctx.fillRect(originX+outerCW-bar,originY+bar,bar,outerCH-bar*2);
+      ctx.strokeStyle='#a07030'; ctx.lineWidth=1; ctx.strokeRect(originX,originY,outerCW,outerCH); ctx.restore();
+      if (c.needsHorizBrace) {
+        const braceYrel_mm = hookTop ? c.frameH + bar_mm + 2 : -bar_mm - 2;
+        const braceY = yOf(braceYrel_mm - canvTopRel_mm);
+        ctx.save(); ctx.globalAlpha=0.9; ctx.fillStyle='#c8a050';
+        ctx.fillRect(originX, braceY-bar/2, outerCW, bar);
+        ctx.strokeStyle='#a07030'; ctx.lineWidth=1; ctx.strokeRect(originX, braceY-bar/2, outerCW, bar); ctx.restore();
+        dimArrow(ctx, originX+outerCW+10, braceY, originX+outerCW+10, yOf(hookTop ? c.frameH - canvTopRel_mm : -canvTopRel_mm), (c.frameH+'mm').toUpperCase(), '#000', '#000', 'v');
+      }
+      if (c.needsVertBrace) {
+        const vertBraceX = !mirrorLeft ? originX+outerCW : originX;
+        ctx.save(); ctx.globalAlpha=0.9; ctx.fillStyle='#c8a050';
+        ctx.fillRect(vertBraceX-bar/2, originY, bar, outerCH);
+        ctx.strokeStyle='#a07030'; ctx.lineWidth=1; ctx.strokeRect(vertBraceX-bar/2, originY, bar, outerCH); ctx.restore();
+        dimArrow(ctx, originX, originY-32, vertBraceX, originY-32, (Math.round(bar_mm+c.canvExtraW)+'mm to brace').toUpperCase(), '#000', '#000', 'h');
+      }
+      dimArrow(ctx, originX-28, originY, originX-28, originY+outerCH, (c.outerCanvH+'mm').toUpperCase(), '#000', '#000', 'v');
+      dimArrow(ctx, originX, originY-32, originX+outerCW, originY-32, (c.outerCanvW+'mm').toUpperCase(), '#000', '#000', 'h');
+      dimArrow(ctx, xOf(bar_mm)+20, yOf(bar_mm-canvTopRel_mm), xOf(bar_mm)+20, yOf(bar_mm-canvTopRel_mm+c.canvH), (c.canvH+'mm').toUpperCase(), '#000', '#000', 'v');
+      dimArrow(ctx, xOf(bar_mm), yOf(-canvTopRel_mm+c.frameH-bar_mm)+24, xOf(bar_mm+c.canvW), yOf(-canvTopRel_mm+c.frameH-bar_mm)+24, (c.canvW+'mm').toUpperCase(), '#000', '#000', 'h');
+      dimArrow(ctx, originX-28, originY+outerCH-bar, originX-28, originY+outerCH, (bar_mm+'mm').toUpperCase(), '#555', '#555', 'v');
+      return offscreen;
+    }
+
+    const allT = Math.min(plateTop_mm, canvTop_mm, apertureTop_mm, 0);
+    const allB = Math.max(plateTop_mm+plateH_mm, canvTop_mm+c.outerCanvH, apertureTop_mm+apertureH_mm, c.frameH);
+    const DIM_L=80, DIM_R=60, DIM_T=50, DIM_B=70;
+    const usableW = PANEL_W - DIM_L - DIM_R - 20;
+    const usableH = PANEL_W - DIM_T - DIM_B - 20;
+    const SCALE = Math.min(usableW/(fullRight_mm-fullLeft_mm), usableH/(allB-allT));
+    function mm(v) { return v * SCALE; }
+    const sceneW = (fullRight_mm-fullLeft_mm)*SCALE, sceneH = (allB-allT)*SCALE;
+    const originX = DIM_L + (PANEL_W-DIM_L-DIM_R-sceneW)/2 - mm(fullLeft_mm);
+    const originY = DIM_T + (PANEL_W-DIM_T-DIM_B-sceneH)/2 - mm(allT);
+    function xOf(x_mm) { return originX + mm(x_mm); }
+    function yOf(y_mm) { return originY + mm(y_mm); }
+
+    const apX=xOf(apertureFixedLeft_mm), apY=yOf(apertureTop_mm), apW=mm(apertureW_mm), apH=mm(apertureH_mm);
+    if (c.tvW > 0 && c.tvH > 0) {
+      ctx.fillStyle='#ffffff'; ctx.fillRect(apX,apY,apW,apH);
+    } else {
+      ctx.fillStyle='#e8e8e8'; ctx.fillRect(apX,apY,apW,apH);
+    }
+    ctx.save(); let region=new Path2D(); region.rect(apX,apY,apW,apH); ctx.clip(region);
+    ctx.shadowColor='rgba(0,0,0,0.6)'; ctx.shadowBlur=20; ctx.strokeStyle='#000'; ctx.lineWidth=20; ctx.strokeRect(apX-10,apY-10,apW+20,apH+20);
+    ctx.restore();
+    ctx.strokeStyle = c.tvW > 0 ? '#f7f7f7' : '#ccc'; ctx.lineWidth=2; ctx.strokeRect(apX,apY,apW,apH);
+    if (c.tvW > 0 && c.tvH > 0) {
+      const tvX=xOf(tvLeft_mm), tvY=yOf(tvTop_mm), tvWpx=mm(c.tvW), tvHpx=mm(c.tvH);
+      ctx.save(); ctx.beginPath(); ctx.roundRect(tvX,tvY,tvWpx,tvHpx,2); ctx.clip();
+      ctx.fillStyle='#111'; ctx.fillRect(tvX,tvY,tvWpx,tvHpx);
+      ctx.strokeStyle='#222'; ctx.lineWidth=8; ctx.strokeRect(tvX+4,tvY+4,tvWpx-8,tvHpx-8); ctx.restore();
+      ctx.font="600 11px Arial"; ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText((c.tvW+'mm (W) x '+c.tvH+'mm (H)').toUpperCase(), tvX+tvWpx/2, tvY+tvHpx/2+4);
+    }
+
+    const plateX=xOf(plateFixedLeft_mm), plateY=yOf(plateTop_mm), plateWpx=mm(plateW_mm), plateHpx=mm(plateH_mm);
+    ctx.save(); ctx.beginPath(); ctx.roundRect(plateX,plateY,plateWpx,plateHpx,mm(6));
+    ctx.fillStyle='#2a2a2a'; ctx.fill(); ctx.strokeStyle='#444'; ctx.lineWidth=1; ctx.stroke(); ctx.restore();
+    ctx.font="600 9px Arial"; ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(('WALL PLATE '+plateW_mm+' x '+plateH_mm+'mm').toUpperCase(), plateX+plateWpx/2, plateY+plateHpx/2+4);
+    const holeCols2=[plateX+mm(15), plateX+plateWpx-mm(15)];
+    const hCY=plateY+plateHpx/2, hSp=mm(75);
+    for (let col of holeCols2) {
+      for (let i=-4;i<=4;i++) {
+        const hy=hCY+i*hSp;
+        if(hy>=plateY+mm(5)&&hy<=plateY+plateHpx-mm(5)){
+          ctx.save(); ctx.beginPath(); ctx.arc(col,hy,mm(4),0,Math.PI*2); ctx.fillStyle='#555'; ctx.fill(); ctx.restore();
+        }
+      }
+    }
+
+    const frameX=xOf(frameLeft_mm), frameY=yOf(0), frameWpx=mm(c.frameW), frameHpx=mm(c.frameH), fStroke=mm(FRAME_STROKE);
+    ctx.fillStyle='#b0b0b0'; ctx.beginPath();
+    ctx.rect(frameX,frameY,frameWpx,frameHpx); ctx.rect(frameX+fStroke,frameY+fStroke,frameWpx-fStroke*2,frameHpx-fStroke*2);
+    ctx.fill('evenodd'); ctx.strokeStyle='#888'; ctx.lineWidth=1.5; ctx.strokeRect(frameX,frameY,frameWpx,frameHpx);
+
+    const bar2=mm(bar_mm);
+    const canvX=xOf(canvLeft_mm), canvY=yOf(canvTop_mm), outerCW=mm(c.outerCanvW), outerCH=mm(c.outerCanvH);
+
+    if (c.needsHorizBrace) {
+      const braceY_mm = hookTop ? c.frameH+2+bar_mm/2 : -2-bar_mm/2;
+      const braceYpx=yOf(braceY_mm);
+      const bL = c.needsVertBrace ? (!mirrorLeft ? frameX : canvX+bar2) : canvX+bar2;
+      const bR = c.needsVertBrace ? (!mirrorLeft ? canvX+outerCW-bar2 : frameX+frameWpx) : canvX+outerCW-bar2;
+      ctx.save(); ctx.globalAlpha=0.9; ctx.fillStyle='#c8a050';
+      ctx.fillRect(bL,braceYpx-bar2/2,bR-bL,bar2); ctx.strokeStyle='#a07030'; ctx.lineWidth=1; ctx.strokeRect(bL,braceYpx-bar2/2,bR-bL,bar2); ctx.restore();
+    }
+    if (c.needsVertBrace) {
+      const vertX = !mirrorLeft ? frameX-bar2 : frameX+frameWpx;
+      ctx.save(); ctx.globalAlpha=0.9; ctx.fillStyle='#c8a050';
+      ctx.fillRect(vertX,canvY+bar2,bar2,outerCH-bar2*2); ctx.strokeStyle='#a07030'; ctx.lineWidth=1; ctx.strokeRect(vertX,canvY+bar2,bar2,outerCH-bar2*2); ctx.restore();
+    }
+
+    ctx.save(); ctx.globalAlpha=0.9; ctx.fillStyle='#c8a050';
+    ctx.fillRect(canvX,canvY,outerCW,bar2); ctx.fillRect(canvX,canvY+outerCH-bar2,outerCW,bar2);
+    ctx.fillRect(canvX,canvY+bar2,bar2,outerCH-bar2*2); ctx.fillRect(canvX+outerCW-bar2,canvY+bar2,bar2,outerCH-bar2*2);
+    ctx.strokeStyle='#a07030'; ctx.lineWidth=1; ctx.strokeRect(canvX,canvY,outerCW,outerCH); ctx.restore();
+
+    drawBrokenDimH(ctx, frameX, frameY+frameHpx+14, frameX+frameWpx, frameY+frameHpx+14, c.frameW+'mm', '#777', 1.8);
+    drawBrokenDimV(ctx, frameX+frameWpx+14, frameY, frameX+frameWpx+14, frameY+frameHpx, c.frameH+'mm', '#777', 1.8);
+
+    const dimTopY = Math.min(canvY, yOf(allT)) - 28;
+    dimArrow(ctx, canvX, dimTopY, canvX+outerCW, dimTopY, (c.outerCanvW+'mm canvas').toUpperCase(), '#000', '#000', 'h');
+    const dimRightX2 = Math.max(canvX+outerCW, xOf(fullRight_mm)) + 20;
+    dimArrow(ctx, dimRightX2, canvY, dimRightX2, canvY+outerCH, (c.outerCanvH+'mm canvas').toUpperCase(), '#000', '#000', 'v');
+
+    const totalMechW_mm = Math.round(fullRight_mm - fullLeft_mm);
+    const dimTotalY = dimTopY - 28;
+    dimArrow(ctx, xOf(fullLeft_mm), dimTotalY, xOf(fullRight_mm), dimTotalY, (totalMechW_mm+'mm total mechanism').toUpperCase(), '#000', '#000', 'h');
+
+    const pLeftX = xOf(plateFixedLeft_mm), pRightX = xOf(plateFixedLeft_mm+plateW_mm);
+    const canvLeftAt0_mm = frameLeftAt0_mm + canvOffX_mm;
+    const canvRightAt0_mm = canvLeftAt0_mm + c.outerCanvW;
+    const farEdgeAt0X = !mirrorLeft ? xOf(canvLeftAt0_mm) : xOf(canvRightAt0_mm);
+    const pEdgeX = !mirrorLeft ? pLeftX : pRightX;
+    const plateToFarEdge_mm = Math.round(Math.abs(!mirrorLeft ? plateFixedLeft_mm - canvLeftAt0_mm : canvRightAt0_mm - (plateFixedLeft_mm+plateW_mm)));
+    const dimPlateEdgeY = dimTotalY - 28;
+    dimArrow(ctx, pEdgeX, dimPlateEdgeY, farEdgeAt0X, dimPlateEdgeY, (plateToFarEdge_mm+'mm plate to canvas edge').toUpperCase(), '#555', '#555', 'h');
+
+    if (t > 0.01) {
+      const tY = dimPlateEdgeY - 28;
+      if (!mirrorLeft) {
+        dimArrow(ctx, xOf(frameLeftAt0_mm), tY, xOf(frameLeftAt0_mm+t*c.travel), tY, ('travel '+Math.round(t*c.travel)+'mm').toUpperCase(), '#cc3333', '#cc3333', 'h');
+      } else {
+        dimArrow(ctx, xOf(frameLeftAt0_mm-t*c.travel), tY, xOf(frameLeftAt0_mm), tY, ('travel '+Math.round(t*c.travel)+'mm').toUpperCase(), '#cc3333', '#cc3333', 'h');
+      }
+    }
+
+    if (c.tvW > 0 && c.tvH > 0) {
+      const dimBelowY = apY + apH + 28;
+      dimArrow(ctx, apX, dimBelowY, apX+apW, dimBelowY, (Math.round(apertureW_mm)+'mm aperture').toUpperCase(), '#000', '#000', 'h');
+      if (!mirrorLeft) {
+        const plateRightX = xOf(plateFixedLeft_mm+plateW_mm);
+        dimArrow(ctx, plateRightX, dimBelowY+28, apX, dimBelowY+28, (Math.round(c.plateToAperture)+'mm plate-aperture').toUpperCase(), '#555', '#555', 'h');
+      } else {
+        const plateLeftX = xOf(plateFixedLeft_mm);
+        dimArrow(ctx, apX+apW, dimBelowY+28, plateLeftX, dimBelowY+28, (Math.round(c.plateToAperture)+'mm plate-aperture').toUpperCase(), '#555', '#555', 'h');
+      }
+    }
+    return offscreen;
+  }
+
+  const mirrorLeft = c.displayAbove;
+  const leftLabel = mirrorLeft ? 'CLOSED POSITION' : 'OPEN POSITION';
+  const rightLabel = mirrorLeft ? 'OPEN POSITION' : 'CLOSED POSITION';
+  const leftPanel = renderSidePanel(0, 'LEFT');
+  const rightPanel = renderSidePanel(1, 'RIGHT');
+  const canvasPanel = renderSidePanel(0, 'CANVAS');
+  const startX = (PROOF_W - (PANEL_W*3+GAP*2)) / 2;
+  const panelY = TOP_H + TITLE_H;
+  pc.font = 'bold 22px Arial'; pc.fillStyle = '#000'; pc.textAlign = 'center';
+  pc.fillText(leftLabel, startX+PANEL_W/2, TOP_H+TITLE_H-10);
+  pc.fillText(rightLabel, startX+PANEL_W+GAP+PANEL_W/2, TOP_H+TITLE_H-10);
+  pc.fillText('CANVAS DETAILS', startX+(PANEL_W+GAP)*2+PANEL_W/2, TOP_H+TITLE_H-10);
+  pc.drawImage(leftPanel, startX, panelY, PANEL_W, PANEL_W);
+  pc.drawImage(rightPanel, startX+PANEL_W+GAP, panelY, PANEL_W, PANEL_W);
+  pc.drawImage(canvasPanel, startX+(PANEL_W+GAP)*2, panelY, PANEL_W, PANEL_W);
+  pc.font = '13px Arial'; pc.fillStyle = '#888'; pc.textAlign = 'center'; pc.fillText('PIC Mechanism Visualiser — Future Automation', PROOF_W/2, panelY+PANEL_W+50);
+  const a = document.createElement('a'); a.href = proof.toDataURL('image/jpeg', 0.93); a.download = activePreset+' GUIDE.jpg'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
 document.getElementById('exportProofBtn').addEventListener('click', exportMechanismProof);
+buildTVSelector(); buildPresets(); syncMotorTubeFields(); updateSidebarForMode(); updateInfo(); draw();
+window.addEventListener('resize', draw);
 </script>
 </body>
 </html>
