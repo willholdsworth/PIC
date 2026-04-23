@@ -390,8 +390,6 @@ function updateInfo() {
     }
     if (c.canvW < apertureW) {
       alertHTML += `<div class="alert warn" style="background:rgba(204,51,51,0.15);border-color:rgba(204,51,51,0.6);">Width: aperture (${apertureW}mm) is wider than canvas inner width (${c.canvW}mm) — set canvas width to ${apertureW}mm to cover aperture edges.</div>`;
-    } else if (c.canvW - apertureW < 10) {
-      alertHTML += `<div class="alert warn">Width: canvas inner width (${c.canvW}mm) is within 10mm of aperture (${apertureW}mm) — risk of seeing aperture edges when mechanism is down.</div>`;
     }
   }
   if (c.needsCrossBrace) {
