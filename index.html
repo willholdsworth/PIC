@@ -354,7 +354,7 @@ function getCalc() {
   if (side) {
     const outerCanvW = canvW + CANVAS_FRAME * 2;
     const outerCanvH = canvH + CANVAS_FRAME * 2;
-    const plateToApertureBase = Math.max(25, CANVAS_FRAME);
+    const plateToApertureBase = Math.max(25, CANVAS_FRAME + 10);
     const plateToApertureOffset = sideApertureOffsetOverride !== null ? sideApertureOffsetOverride : 0;
     const plateToAperture = plateToApertureBase + plateToApertureOffset;
     const canvExtraH = canvH - frameH;
@@ -681,10 +681,10 @@ function drawFrameSide(t, c) {
     apertureFixedLeft_mm = plateFixedLeft_mm + plateW_mm + c.plateToAperture;
   } else {
     apertureFixedLeft_mm = 0;
-    plateFixedLeft_mm = apertureFixedLeft_mm - c.plateToAperture - plateW_mm;
-    frameLeftAt0_mm = apertureFixedLeft_mm - c.frameW;
+    plateFixedLeft_mm = apertureFixedLeft_mm + apertureW_mm + c.plateToAperture;
+    frameLeftAt0_mm = plateFixedLeft_mm;
     frameLeft_mm = frameLeftAt0_mm - t * c.travel;
-    canvOffX_mm = c.frameW - bar_mm;
+    canvOffX_mm = -bar_mm;
     canvLeft_mm = frameLeft_mm + canvOffX_mm;
   }
 
@@ -705,12 +705,8 @@ function drawFrameSide(t, c) {
     frameLeftFull_mm = frameLeftAt0_mm - c.travel + Math.min(0, canvOffX_mm);
   }
 
-  const fullLeft_mm = !mirrorLeft
-    ? Math.min(plateFixedLeft_mm, frameLeftFull_mm)
-    : Math.min(apertureFixedLeft_mm, frameLeftFull_mm);
-  const fullRight_mm = !mirrorLeft
-    ? Math.max(apertureFixedLeft_mm + apertureW_mm, frameRightFull_mm)
-    : Math.max(plateFixedLeft_mm + plateW_mm, frameRightFull_mm);
+  const fullLeft_mm = Math.min(plateFixedLeft_mm, apertureFixedLeft_mm, frameLeftFull_mm);
+  const fullRight_mm = Math.max(plateFixedLeft_mm + plateW_mm, apertureFixedLeft_mm + apertureW_mm, frameRightFull_mm);
 
   const allTop = Math.min(plateTop_mm, canvTop_mm, apertureTop_mm, frameTop_mm);
   const allBottom = Math.max(plateTop_mm + plateH_mm, canvTop_mm + c.outerCanvH, apertureTop_mm + apertureH_mm, frameTop_mm + c.frameH);
@@ -773,7 +769,7 @@ function drawFrameSide(t, c) {
   const plateWpx = mm(plateW_mm), plateHpx = mm(plateH_mm);
   ctx.save(); ctx.beginPath(); ctx.roundRect(plateX, plateY, plateWpx, plateHpx, mm(6));
   ctx.fillStyle = '#2a2a2a'; ctx.fill(); ctx.strokeStyle = '#444'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
-  lbl(ctx, 'WALL PLATE '+plateW_mm+' x '+plateH_mm+'mm', plateX+plateWpx/2, plateY+plateHpx/2+4, '#fff', '0.5rem');
+  lbl(ctx, plateW_mm+' x '+plateH_mm+'mm', plateX+plateWpx/2, plateY+plateHpx/2+4, '#fff', '0.5rem');
   const holeCols = [plateX + mm(15), plateX + plateWpx - mm(15)];
   const holeCenterY = plateY + plateHpx/2;
   const holeSpacing = mm(75);
@@ -824,12 +820,14 @@ function drawFrameSide(t, c) {
   ctx.fillRect(canvX, canvY+bar, bar, outerCH-bar*2); ctx.fillRect(canvX+outerCW-bar, canvY+bar, bar, outerCH-bar*2);
   ctx.strokeStyle = '#a07030'; ctx.lineWidth = 1; ctx.strokeRect(canvX, canvY, outerCW, outerCH); ctx.restore();
 
-  drawBrokenDimV(ctx, frameX-14, frameY, frameX-14, frameY+frameHpx, c.frameH+'mm MOVING FRAME', '#777', 1.8);
   drawBrokenDimH(ctx, frameX, frameY+frameHpx+12, frameX+frameWpx, frameY+frameHpx+12, c.frameW+'mm MOVING FRAME', '#777', 1.8);
 
   const dimBottomY = Math.max(canvY+outerCH, frameY+frameHpx) + 22;
   dimArrow(ctx, canvX, dimBottomY, canvX+outerCW, dimBottomY, (c.outerCanvW+'mm canvas').toUpperCase(), '#000', '#000', 'h');
-  dimArrow(ctx, canvX-16, canvY, canvX-16, canvY+outerCH, (c.outerCanvH+'mm canvas').toUpperCase(), '#000', '#000', 'v');
+  const canvHeightDimX = mirrorLeft ? canvX+outerCW+16 : canvX-16;
+  dimArrow(ctx, canvHeightDimX, canvY, canvHeightDimX, canvY+outerCH, (c.outerCanvH+'mm canvas').toUpperCase(), '#000', '#000', 'v');
+  const frameDimX = mirrorLeft ? frameX+frameWpx+14 : frameX-14;
+  drawBrokenDimV(ctx, frameDimX, frameY, frameDimX, frameY+frameHpx, c.frameH+'mm MOVING FRAME', '#777', 1.8);
 
   const totalMechLeft_mm = fullLeft_mm;
   const totalMechRight_mm = fullRight_mm;
@@ -841,11 +839,18 @@ function drawFrameSide(t, c) {
   const plateRightX = xOf(plateFixedLeft_mm + plateW_mm);
   const canvLeftAt0_mm = frameLeftAt0_mm + canvOffX_mm;
   const canvRightAt0_mm = canvLeftAt0_mm + c.outerCanvW;
-  const farEdgeAt0X = !mirrorLeft ? xOf(canvLeftAt0_mm) : xOf(canvRightAt0_mm);
-  const plateEdgeX = !mirrorLeft ? plateLeftX : plateRightX;
-  const plateToFarEdge_mm = Math.round(Math.abs((!mirrorLeft ? plateFixedLeft_mm - canvLeftAt0_mm : canvRightAt0_mm - (plateFixedLeft_mm + plateW_mm))));
+  let plateToFarEdge_mm, farEdgeAt0X, plateEdgeX;
+  if (!mirrorLeft) {
+    plateToFarEdge_mm = Math.round(plateFixedLeft_mm - canvLeftAt0_mm);
+    farEdgeAt0X = xOf(canvLeftAt0_mm);
+    plateEdgeX = xOf(plateFixedLeft_mm);
+  } else {
+    plateToFarEdge_mm = Math.round(canvRightAt0_mm - plateFixedLeft_mm);
+    farEdgeAt0X = xOf(canvRightAt0_mm);
+    plateEdgeX = xOf(plateFixedLeft_mm);
+  }
   const dimPlateEdgeY = dimTotalY - 28;
-  dimArrow(ctx, plateEdgeX, dimPlateEdgeY, farEdgeAt0X, dimPlateEdgeY, (plateToFarEdge_mm+'mm plate to canvas edge').toUpperCase(), '#555', '#555', 'h');
+  dimArrow(ctx, plateEdgeX, dimPlateEdgeY, farEdgeAt0X, dimPlateEdgeY, plateToFarEdge_mm+'mm', '#555', '#555', 'h');
 
   if (t > 0.01) {
     const travelDimY = dimPlateEdgeY - 28;
@@ -859,7 +864,7 @@ function drawFrameSide(t, c) {
   if (c.tvW > 0 && c.tvH > 0) {
     const apX = xOf(apertureFixedLeft_mm), apY = yOf(apertureTop_mm);
     const apW = mm(apertureW_mm), apH = mm(apertureH_mm);
-    const dimRightX = apX + apW + 28;
+    const dimRightX = mirrorLeft ? apX - 28 : apX + apW + 28;
     dimArrow(ctx, dimRightX, apY, dimRightX, apY+apH, (Math.round(apertureH_mm)+'mm aperture').toUpperCase(), '#000', '#000', 'v');
     const plateBottom_mm = plateFixedCenterY_mm + plateH_mm/2;
     const gapBottom_mm = plateBottom_mm - (apertureTop_mm + apertureH_mm);
@@ -870,15 +875,14 @@ function drawFrameSide(t, c) {
     } else {
       dimArrow(ctx, plateMidX, yOf(plateFixedCenterY_mm - plateH_mm/2), plateMidX, apY, Math.round(gapTop_mm)+'mm', '#aaa', '#aaa', 'v');
     }
-    const dimBelowY = apY + apH + 28;
-    dimArrow(ctx, apX, dimBelowY, apX+apW, dimBelowY, (Math.round(apertureW_mm)+'mm aperture').toUpperCase(), '#000', '#000', 'h');
+    const dimAboveY = apY - 20;
+    dimArrow(ctx, apX, dimAboveY, apX+apW, dimAboveY, (Math.round(apertureW_mm)+'mm aperture').toUpperCase(), '#000', '#000', 'h');
     const plateMidY = plateY + plateHpx/2;
     if (!mirrorLeft) {
       const plateRightX = xOf(plateFixedLeft_mm + plateW_mm);
       dimArrow(ctx, plateRightX, plateMidY, apX, plateMidY, Math.round(c.plateToAperture)+'mm', '#aaa', '#aaa', 'h');
     } else {
-      const plateLeftX = xOf(plateFixedLeft_mm);
-      dimArrow(ctx, apX+apW, plateMidY, plateLeftX, plateMidY, Math.round(c.plateToAperture)+'mm', '#aaa', '#aaa', 'h');
+      dimArrow(ctx, xOf(plateFixedLeft_mm), plateMidY, apX+apW, plateMidY, Math.round(c.plateToAperture)+'mm', '#aaa', '#aaa', 'h');
     }
   }
 }
@@ -1190,10 +1194,10 @@ function exportSideProof(c) {
       apertureFixedLeft_mm = plateFixedLeft_mm + plateW_mm + c.plateToAperture;
     } else {
       apertureFixedLeft_mm = 0;
-      plateFixedLeft_mm = apertureFixedLeft_mm - c.plateToAperture - plateW_mm;
-      frameLeftAt0_mm = apertureFixedLeft_mm - c.frameW;
+      plateFixedLeft_mm = apertureFixedLeft_mm + apertureW_mm + c.plateToAperture;
+      frameLeftAt0_mm = plateFixedLeft_mm;
       frameLeft_mm = frameLeftAt0_mm - t * c.travel;
-      canvOffX_mm = c.frameW - bar_mm;
+      canvOffX_mm = -bar_mm;
       canvLeft_mm = frameLeft_mm + canvOffX_mm;
     }
 
@@ -1212,8 +1216,8 @@ function exportSideProof(c) {
       frameRightFull_mm = Math.max(frameLeftAt0_mm + c.frameW, frameLeftAt0_mm + canvOffX_mm + c.outerCanvW);
       frameLeftFull_mm = frameLeftAt0_mm - c.travel + Math.min(0, canvOffX_mm);
     }
-    const fullLeft_mm = !mirrorLeft ? Math.min(plateFixedLeft_mm, frameLeftFull_mm) : Math.min(apertureFixedLeft_mm, frameLeftFull_mm);
-    const fullRight_mm = !mirrorLeft ? Math.max(apertureFixedLeft_mm + apertureW_mm, frameRightFull_mm) : Math.max(plateFixedLeft_mm + plateW_mm, frameRightFull_mm);
+    const fullLeft_mm = Math.min(plateFixedLeft_mm, apertureFixedLeft_mm, frameLeftFull_mm);
+    const fullRight_mm = Math.max(plateFixedLeft_mm + plateW_mm, apertureFixedLeft_mm + apertureW_mm, frameRightFull_mm);
 
     if (mode === 'CANVAS') {
       const DIM_PAD = 80;
@@ -1237,29 +1241,49 @@ function exportSideProof(c) {
         const frameTopInCanvas_mm = -canvTopRel_mm;
         const braceYrel_mm = hookTop ? frameTopInCanvas_mm + c.frameH + 2 + bar_mm/2 : frameTopInCanvas_mm - 2 - bar_mm/2;
         const braceY = originY + mm(braceYrel_mm);
-        ctx.save(); ctx.globalAlpha=0.9; ctx.fillStyle='#c8a050';
-        const hBraceLeft = c.needsVertBrace ? frameLeftX : originX + bar;
+        const hBraceLeft = c.needsVertBrace ? frameLeftX + bar/2 : originX + bar;
         const hBraceRight = originX + outerCW - bar;
+        ctx.save(); ctx.globalAlpha=0.9; ctx.fillStyle='#c8a050';
         ctx.fillRect(hBraceLeft, braceY-bar/2, hBraceRight-hBraceLeft, bar);
         ctx.strokeStyle='#a07030'; ctx.lineWidth=1; ctx.strokeRect(hBraceLeft, braceY-bar/2, hBraceRight-hBraceLeft, bar); ctx.restore();
-        const frameEdgeY = hookTop ? originY + mm(frameTopInCanvas_mm + c.frameH) : originY + mm(frameTopInCanvas_mm);
-        dimArrow(ctx, originX+outerCW+10, braceY, originX+outerCW+10, frameEdgeY, (c.frameH+'mm').toUpperCase(), '#000', '#000', 'v');
-        const canvEdgeY = hookTop ? originY + outerCH - bar : originY + bar;
-        const braceDist_mm = hookTop ? Math.round(c.canvExtraH) : Math.round(c.canvExtraH);
-        dimArrow(ctx, hBraceRight + 10, braceY, hBraceRight + 10, canvEdgeY, (braceDist_mm+'mm').toUpperCase(), '#555', '#555', 'v');
+        const braceDist_mm = c.frameH + 2;
+        const dimX = hBraceRight - 20;
+        if (hookTop) {
+          const insideTopY = originY + bar;
+          dimArrow(ctx, dimX, insideTopY, dimX, braceY - bar/2, (braceDist_mm+'mm').toUpperCase(), '#555', '#555', 'v');
+        } else {
+          const insideBottomY = originY + outerCH - bar;
+          dimArrow(ctx, dimX, braceY + bar/2, dimX, insideBottomY, (braceDist_mm+'mm').toUpperCase(), '#555', '#555', 'v');
+        }
+        if (c.needsVertBrace) {
+          const insideRightX = originX + outerCW - bar;
+          const vertBraceDist_mm = c.frameW + 2;
+          dimArrow(ctx, frameLeftX + bar/2, braceY - bar - 20, insideRightX, braceY - bar - 20, (vertBraceDist_mm+'mm').toUpperCase(), '#555', '#555', 'h');
+        }
+      }
+      if (c.needsVertBrace && !c.needsHorizBrace) {
+        ctx.save(); ctx.globalAlpha=0.9; ctx.fillStyle='#c8a050';
+        ctx.fillRect(frameLeftX-bar/2, originY+bar, bar, outerCH-bar*2);
+        ctx.strokeStyle='#a07030'; ctx.lineWidth=1; ctx.strokeRect(frameLeftX-bar/2, originY+bar, bar, outerCH-bar*2); ctx.restore();
+        const insideRightX = originX + outerCW - bar;
+        const vertBraceDist_mm = c.frameW + 2;
+        const frameBottomY = originY + mm(-canvTopRel_mm + c.frameH);
+        dimArrow(ctx, frameLeftX + bar/2, frameBottomY - 20, insideRightX, frameBottomY - 20, (vertBraceDist_mm+'mm').toUpperCase(), '#555', '#555', 'h');
       }
       if (c.needsVertBrace) {
         ctx.save(); ctx.globalAlpha=0.9; ctx.fillStyle='#c8a050';
         ctx.fillRect(frameLeftX-bar/2, originY+bar, bar, outerCH-bar*2);
         ctx.strokeStyle='#a07030'; ctx.lineWidth=1; ctx.strokeRect(frameLeftX-bar/2, originY+bar, bar, outerCH-bar*2); ctx.restore();
-        dimArrow(ctx, frameLeftX, originY-32, originX+outerCW-bar, originY-32, (Math.round(c.frameW)+'mm frame').toUpperCase(), '#000', '#000', 'h');
-        dimArrow(ctx, frameLeftX, originY+outerCH+20, originX+outerCW-bar, originY+outerCH+20, (Math.round(c.canvExtraW)+'mm').toUpperCase(), '#555', '#555', 'h');
       }
 
       dimArrow(ctx, originX-28, originY, originX-28, originY+outerCH, (c.outerCanvH+'mm').toUpperCase(), '#000', '#000', 'v');
-      dimArrow(ctx, originX, originY-32, originX+outerCW, originY-32, (c.outerCanvW+'mm').toUpperCase(), '#000', '#000', 'h');
+        if (c.needsVertBrace) {
+          dimArrow(ctx, originX, originY-32, originX+outerCW, originY-32, (c.outerCanvW+'mm').toUpperCase(), '#000', '#000', 'h');
+        } else {
+          dimArrow(ctx, originX, originY-32, originX+outerCW, originY-32, (c.outerCanvW+'mm').toUpperCase(), '#000', '#000', 'h');
+        }
       dimArrow(ctx, originX+bar+20, originY+bar, originX+bar+20, originY+outerCH-bar, (c.canvH+'mm').toUpperCase(), '#000', '#000', 'v');
-      dimArrow(ctx, originX+bar, originY+outerCH-bar+24, originX+outerCW-bar, originY+outerCH-bar+24, (c.canvW+'mm').toUpperCase(), '#000', '#000', 'h');
+      dimArrow(ctx, originX+bar, originY+bar+40, originX+outerCW-bar, originY+bar+40, (c.canvW+'mm').toUpperCase(), '#000', '#000', 'h');
       dimArrow(ctx, originX-28, originY+outerCH-bar, originX-28, originY+outerCH, (bar_mm+'mm').toUpperCase(), '#555', '#555', 'v');
       return offscreen;
     }
@@ -1301,7 +1325,7 @@ function exportSideProof(c) {
     ctx.save(); ctx.beginPath(); ctx.roundRect(plateX,plateY,plateWpx,plateHpx,mm(6));
     ctx.fillStyle='#2a2a2a'; ctx.fill(); ctx.strokeStyle='#444'; ctx.lineWidth=1; ctx.stroke(); ctx.restore();
     ctx.font="600 9px Arial"; ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(('WALL PLATE '+plateW_mm+' x '+plateH_mm+'mm').toUpperCase(), plateX+plateWpx/2, plateY+plateHpx/2+4);
+    ctx.fillText((plateW_mm+' x '+plateH_mm+'mm').toUpperCase(), plateX+plateWpx/2, plateY+plateHpx/2+4);
     const holeCols2=[plateX+mm(15), plateX+plateWpx-mm(15)];
     const hCY=plateY+plateHpx/2, hSp=mm(75);
     for (let col of holeCols2) {
@@ -1341,12 +1365,13 @@ function exportSideProof(c) {
     ctx.strokeStyle='#a07030'; ctx.lineWidth=1; ctx.strokeRect(canvX,canvY,outerCW,outerCH); ctx.restore();
 
     drawBrokenDimH(ctx, frameX, frameY+frameHpx+14, frameX+frameWpx, frameY+frameHpx+14, c.frameW+'mm', '#777', 1.8);
-    drawBrokenDimV(ctx, frameX+frameWpx+14, frameY, frameX+frameWpx+14, frameY+frameHpx, c.frameH+'mm', '#777', 1.8);
+    const frameDimX = mirrorLeft ? frameX+frameWpx+14 : frameX-14;
+    drawBrokenDimV(ctx, frameDimX, frameY, frameDimX, frameY+frameHpx, c.frameH+'mm', '#777', 1.8);
 
     const dimTopY = Math.min(canvY, yOf(allT)) - 28;
     dimArrow(ctx, canvX, dimTopY, canvX+outerCW, dimTopY, (c.outerCanvW+'mm canvas').toUpperCase(), '#000', '#000', 'h');
-    const dimRightX2 = Math.max(canvX+outerCW, xOf(fullRight_mm)) + 20;
-    dimArrow(ctx, dimRightX2, canvY, dimRightX2, canvY+outerCH, (c.outerCanvH+'mm canvas').toUpperCase(), '#000', '#000', 'v');
+    const canvHDimX = mirrorLeft ? canvX+outerCW+20 : canvX-20;
+    dimArrow(ctx, canvHDimX, canvY, canvHDimX, canvY+outerCH, (c.outerCanvH+'mm canvas').toUpperCase(), '#000', '#000', 'v');
 
     const totalMechW_mm = Math.round(fullRight_mm - fullLeft_mm);
     const dimTotalY = dimTopY - 28;
@@ -1355,11 +1380,18 @@ function exportSideProof(c) {
     const pLeftX = xOf(plateFixedLeft_mm), pRightX = xOf(plateFixedLeft_mm+plateW_mm);
     const canvLeftAt0_mm = frameLeftAt0_mm + canvOffX_mm;
     const canvRightAt0_mm = canvLeftAt0_mm + c.outerCanvW;
-    const farEdgeAt0X = !mirrorLeft ? xOf(canvLeftAt0_mm) : xOf(canvRightAt0_mm);
-    const pEdgeX = !mirrorLeft ? pLeftX : pRightX;
-    const plateToFarEdge_mm = Math.round(Math.abs(!mirrorLeft ? plateFixedLeft_mm - canvLeftAt0_mm : canvRightAt0_mm - (plateFixedLeft_mm+plateW_mm)));
+    let plateToFarEdge_mm, farEdgeAt0X, pEdgeX;
+    if (!mirrorLeft) {
+      plateToFarEdge_mm = Math.round(plateFixedLeft_mm - canvLeftAt0_mm);
+      farEdgeAt0X = xOf(canvLeftAt0_mm);
+      pEdgeX = pLeftX;
+    } else {
+      plateToFarEdge_mm = Math.round(canvRightAt0_mm - plateFixedLeft_mm);
+      farEdgeAt0X = xOf(canvRightAt0_mm);
+      pEdgeX = pLeftX;
+    }
     const dimPlateEdgeY = dimTotalY - 28;
-    dimArrow(ctx, pEdgeX, dimPlateEdgeY, farEdgeAt0X, dimPlateEdgeY, (plateToFarEdge_mm+'mm plate to canvas edge').toUpperCase(), '#555', '#555', 'h');
+    dimArrow(ctx, pEdgeX, dimPlateEdgeY, farEdgeAt0X, dimPlateEdgeY, plateToFarEdge_mm+'mm', '#555', '#555', 'h');
 
     if (t > 0.01) {
       const tY = dimPlateEdgeY - 28;
@@ -1371,7 +1403,6 @@ function exportSideProof(c) {
     }
 
     if (c.tvW > 0 && c.tvH > 0) {
-      const dimRightX = apX + apW + 28;
       const plateBottom_mm = plateCenterY_mm + plateH_mm/2;
       const gapBottom_mm = plateBottom_mm - (apertureTop_mm + apertureH_mm);
       const gapTop_mm = apertureTop_mm - (plateCenterY_mm - plateH_mm/2);
@@ -1381,23 +1412,24 @@ function exportSideProof(c) {
       } else {
         dimArrow(ctx, pMidX, yOf(plateCenterY_mm - plateH_mm/2), pMidX, apY, Math.round(gapTop_mm)+'mm', '#aaa', '#aaa', 'v');
       }
-      const dimBelowY = apY + apH + 28;
-      dimArrow(ctx, apX, dimBelowY, apX+apW, dimBelowY, (Math.round(apertureW_mm)+'mm aperture').toUpperCase(), '#000', '#000', 'h');
+      const dimAboveY = apY - 20;
+      dimArrow(ctx, apX, dimAboveY, apX+apW, dimAboveY, (Math.round(apertureW_mm)+'mm aperture').toUpperCase(), '#000', '#000', 'h');
+      const apHeightDimX = mirrorLeft ? apX - 28 : apX + apW + 28;
+      dimArrow(ctx, apHeightDimX, apY, apHeightDimX, apY+apH, (Math.round(apertureH_mm)+'mm aperture').toUpperCase(), '#000', '#000', 'v');
       const plateMidY = yOf(plateCenterY_mm);
       if (!mirrorLeft) {
         const plateRightX = xOf(plateFixedLeft_mm+plateW_mm);
         dimArrow(ctx, plateRightX, plateMidY, apX, plateMidY, Math.round(c.plateToAperture)+'mm', '#aaa', '#aaa', 'h');
       } else {
-        const plateLeftX = xOf(plateFixedLeft_mm);
-        dimArrow(ctx, apX+apW, plateMidY, plateLeftX, plateMidY, Math.round(c.plateToAperture)+'mm', '#aaa', '#aaa', 'h');
+        dimArrow(ctx, xOf(plateFixedLeft_mm), plateMidY, apX+apW, plateMidY, Math.round(c.plateToAperture)+'mm', '#aaa', '#aaa', 'h');
       }
     }
     return offscreen;
   }
 
   const mirrorLeft = c.displayAbove;
-  const leftLabel = mirrorLeft ? 'CLOSED POSITION' : 'OPEN POSITION';
-  const rightLabel = mirrorLeft ? 'OPEN POSITION' : 'CLOSED POSITION';
+  const leftLabel = 'OPEN POSITION';
+  const rightLabel = 'CLOSED POSITION';
   const leftPanel = renderSidePanel(0, 'LEFT');
   const rightPanel = renderSidePanel(1, 'RIGHT');
   const canvasPanel = renderSidePanel(0, 'CANVAS');
